@@ -12,9 +12,13 @@ cache:
   directories:
   - $HOME/.m2
 
-script:
-- echo "TRAVIS_TAG $TRAVIS_TAG"
-- '[ "IS_${TRAVIS_TAG}" != "IS_" ] && mvn versions:set -DnewVersion=$TRAVIS_TAG && mvn deploy site-deploy -Dgithub.global.oauth2Token=$GITHUB_TOKEN --settings settings.xml || [ "${TRAVIS_PULL_REQUEST}" = "false" ] && mvn deploy --settings settings.xml || mvn -q test -B'
+before_script:
+- test "$TRAVIS_PULL_REQUEST" == "false" && git clone -b travis `git config --get remote.origin.url` target/travis || true
+
+install:
+- '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && echo "Not a PR Build" && [ "IS_${TRAVIS_TAG}" != "IS_" ] && echo "Is tag build $TRAVIS_TAG" || echo "."'
+- '[ "IS_${TRAVIS_TAG}" != "IS_" ] && mvn versions:set -DnewVersion=$TRAVIS_TAG -P core || true'
+- '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && echo "Deploying..." && mvn deploy site-deploy -P core -DskipTests=true --settings settings.xml -Dgithub.global.oauth2Token=$GITHUB_TOKEN || echo "Testing..." && mvn -q -P core test -B'
 
 after_success:
 - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && sbt ++2.11.4 coverageAggregate || true'
@@ -27,3 +31,4 @@ env:
   - secure: ieeWY45bUzeOv4zJcAdEopj7CEkTPxkKgQyPYSFUN3KQXSqT7GqMA3UxIbTw6K//BoMKegXfJionDruhaZWxJ8R6xrzq0oSVvODoTN7gkYBHqjseWBOH6Z11j66cx1ZxuPYcYkTy2TCZ7lhYfGolchhG8mSEhev09OH1BQ8xUgCFjYtXcCCOp+ESs78tTsvwJJJuJfiWqQTloeg+he8DG36nC7KO98J38RvzkjFGvLfntDV6A9sxCOLAFuYXFSlWOwy9finZbSejBaSW1iu1KcW2xrlHSaRLun30cRs7sliUmnqWk7+eNwgyAifHd2hmMMLuNVeh3hJm11/vsQqdmZMsdNdg+XMJ+aA21Hxs8oFA813T8LrjkbKUmBdGK6ARMPwSEh1Hl4/JUDLrlaY9KED4mu7CpjdKxtQL3E1z2qqQkSX8odSwB3HrViktlQtJTLkNmrNwl0UTHzTIx5qEsIgkHRSjLMSjsxoMGGbS8QEPKP2NjpY+yOq/oOKVwseyhp74I++ueQV9VGQ2CJ5o4KNV5opkStCImyd2gLgGXu08YkAQuArFvY+qMgZAodjZMJz2obMyI2qkNnq8PXd5Gxxirb5IReGHszc3tnRaSKySqRlmZ/ayt+Vleyx88urATH0La+Rfams+Tc6xitIVGQboKF8O1bmoiQhZOWjo+Ww=
   - secure: iGY4XKyqF79LqEHMoF9Uca7quyKiQkDZEijCn9KXRLLKsJv4MS1/YESW6ZjVfcq8UVJ1viroteMJtPMZeTjhqjq0/na2s6aSIDZrwcM1PhYMJzW5r8vr+jrvdBR/aaoxpzfI29rYeA2oqRwh9DDdHQommZKapK8tfHuPsjS5JxaH/n7PcET3MAumkxpx8Mjnkhcc1xTM48wVBPO4kl0A+xr90gFNsJj2+9mQ4P7ngiBsGX0tdRfIrfZS+1D92R5OAanNxqDlj+vGeXkg4DryD55G2LkAKJOs4Ga1w7ish2b4xqvZP+nmwc63fsmhyYMpcM2yLDcGlNdZdfKKqW3Ycqrlm4W15f4xJ5U8HH3fJlgtsfkkOAMVOT0fCCfpDXVxinyl3keHfsO+CEWK+GdNhvbh0l6niFUyXdIp6a+kVXsnoI4wch60jTNJOjrmE6EM3WH5QT770/9aUvIgJxGsMXBddi653y07C9QjY7CRUdHD/w6WPexkKY89i1HfcuwHaVgVvvx0nFh/Q0CFSjRrRz65dmKqJowMTBupRERnGyy3k8YKbokY3eyOLlOVTA+dNqI4DNDUbsSrhFFFe+Wum2hpZUd2jNdXqp9VU66fxQ1gI484so6Go6VGoyzJg+WjSZlRP3VQ6EMEPK0kAjHWYfQIHPG9WnVwIp5b0v07kp4=
   - secure: cJYJvIsI35Z1euAkIr8sz7C7c+hnhba/6RXBnT7/G0VfvBBdGOpsTYlgLdoGMJA9HDZC8WBQI0zweABB2S80JVRAVMA8d5DiyfyAqtAM9biMe/8wdn8iZtkUBw3BDuB1u3ysboNj6zrLCw6D8k4T2LObsmfdVs+wnoeFwer8IdLQCijQ9mkx1/75iOFBoR/pr4WTkqyKyTTOCGeL6nlc1CE329+H9yhNl72pgzC9sgNne7LE5jhMTZdN7srrQJWn6ND6wL0WRKT16j2eaYV1du8cuTxgQIbPT5us5xEE3nyxux+2wbqy00zv287HtMqRkQHggeaH2fs9Gdb9ZomjqDzsKb+K7b6JtiARDdUZOHlb76oY0ep/sV0BPQs66NzIkXRZiuUQ7gW4CRXlrtEg7tBVjmYEjfsrYwvVmhevZPKhMC4+rxLFbWGgksx34ReIud0gEKvr+E+I2nAu4gS+M8HErIE+mP3sk7+WOqcCpROczJAKMJGRfruap85zVR+x28lht8wjXdJevBs5QWNCZL9VE5F/DJFLk2mxwfxiWk3MmXllSWhdxmHaOTEAige0DVLTZPZYU/knFA+0OE5HX0nuGXwQIVv0IqoEMpe9DiTwBT5gtwzZ4P86giz1cAQtRAvN+yrVSuF1MoIlktrjVtC+0fAZ/TjtexwawHIPBKo=
+  - secure: T421nLDHIKnQWPp0qdqWTx4OnOhA+foAatPsWzHHVSn7gw1Sb6jhbsYdtXRe2QvqUTL3r2yy9DycWK7t3MWmGeV37Egu3gCv+LqaG4wFSaS+16vGxcg+/F5PARiu9gOFflAyQvcDi84fOL88tWmXmborkIf8uksE/SV/+jEZWYXuda5QpsXrFom8iFrBa1hEpt5yn04GWzFyGMYTlKcTq21+LVmzipHQIa/q15SUUoqVfSKuPQO2XAguDi6s7OIegYj0mnQSVzRAJKO6fJFBhepNKNgCPKJRcn1OBtuQKSW+MQj0sdOT49RApRPLcLAsPVaiRuumAqFMltPNytMjw7BPFWkC9931EsKGtsclV+F4/HkyR3UrUFonqSmv2MxcheMch6Fk9VUEFP6ujjeznSEU7UJ5LxanLgidBUJkpbrw2cur4ACX1ckHe5FNU0FGTDkQygudp60dqYIscqKqzanvPOBiW8OaWW+/vnBMt5kWIuZ5gp93UB1j3nor93pCw/VgHNQQKr05fl8llFHBiBiZn0YLIVCVtRe042+BVoCS4M5QpDZ3OUYm4KFtfEtU9mLxEZd+rKYrZsfuP47+cMDO/Cqx5dnczNuCSeTMOPvEnmTbDpjxKQ1ZBI0jdcParKuCpyD6oIa3zisLgfO5UaRjckmiuvaHz47X/bIdIGE=
