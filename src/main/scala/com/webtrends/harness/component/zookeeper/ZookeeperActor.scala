@@ -20,6 +20,7 @@
 package com.webtrends.harness.component.zookeeper
 
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.pattern._
@@ -577,7 +578,7 @@ private class LeaderListener(path: String, ref: ActorRef, namespace: Option[Stri
 
   def publishEvent(leader: Boolean) = {
     // Notify the registered listeners
-    implicit val timeout = Timeout(2000)
+    implicit val timeout = Timeout(2000, TimeUnit.MILLISECONDS)
     (ref ? GetLeaderRegistrars(path, namespace)).mapTo[Set[ActorRef]].onSuccess {
       case set => set foreach {
         _ ! ZookeeperLeadershipEvent(leader)
