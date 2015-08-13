@@ -1,6 +1,6 @@
 # Wookiee - Component: ZooKeeper
 
-[![Build Status](https://travis-ci.org/Webtrends/wookiee-metrics.svg?branch=master)](https://travis-ci.org/Webtrends/wookiee-kafka) [![Coverage Status](https://coveralls.io/repos/Webtrends/wookiee-kafka/badge.svg?branch=master&service=github)](https://coveralls.io/github/Webtrends/wookiee-kafka?branch=master) [![Latest Release](https://img.shields.io/github/release/webtrends/wookiee-kafka.svg)](https://github.com/Webtrends/wookiee-kafka/releases) [![License](http://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
+[![Build Status](https://travis-ci.org/Webtrends/wookiee-zookeeper.svg?branch=master)](https://travis-ci.org/Webtrends/wookiee-zookeeper) [![Coverage Status](https://coveralls.io/repos/Webtrends/wookiee-zookeeper/badge.svg?branch=master&service=github)](https://coveralls.io/github/Webtrends/wookiee-zookeeper?branch=master) [![Latest Release](https://img.shields.io/github/release/webtrends/wookiee-zookeeper.svg)](https://github.com/Webtrends/wookiee-zookeeper/releases) [![License](http://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
 [Main Wookiee Project](https://github.com/Webtrends/wookiee)
 
