@@ -30,6 +30,7 @@ import scala.collection.JavaConversions._
 
 private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAdapter {
 
+  private[zookeeper] case class DiscoveryKey(basePath: String, key:String)
   private[zookeeper] case class ProviderKey(basePath:String, key:String)
 
   // We manage an internal client since the CuratorFramework will not allow re-use of the client
@@ -38,7 +39,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   def client = internalClient.get
 
   // list of all discovery services by basepath
-  private val discoveries = mutable.Map[String, ServiceDiscovery[Void]]()
+  private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[Void]]()
   // we manage an internal list of all discoverable provider
   private val providers = mutable.Map[ProviderKey, ServiceProvider[Void]]()
 
@@ -86,16 +87,20 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def discovery(basePath:String, service: Option[ServiceInstance[Void]] = None): ServiceDiscovery[Void] = {
-    if (discoveries.contains(basePath)) {
-      discoveries(basePath)
-    } else {
+    val key = DiscoveryKey(basePath, service match {
+      case Some(s) => s.getName
+      case _ => ""
+    })
+    if (discoveries.contains(key)) {
+      discoveries(key)
+    } else  {
       val discovery = ServiceDiscoveryBuilder.builder(classOf[Void])
         .client(client)
         .basePath(basePath)
         .build()
       service.foreach(it => discovery.registerService(it))
       discovery.start()
-      discoveries.put(basePath, discovery)
+      discoveries.put(key, discovery)
       discovery
     }
   }
@@ -126,8 +131,9 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     // create a provider for the service if one has not already been created for it
     val key = ProviderKey(basePath, instance.getName)
     if (!providers.contains(key)) {
-      val provider = discovery(basePath, Some(instance))
-      providers.put(key, provider.serviceProviderBuilder().serviceName(instance.getName).build())
+      val provider = discovery(basePath, Some(instance)).serviceProviderBuilder().serviceName(instance.getName).build()
+      provider.start()
+      providers.put(key, provider)
     }
   }
 }
