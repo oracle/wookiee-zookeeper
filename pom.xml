@@ -17,15 +17,16 @@
         <build>${build.number}</build>
         <build-artifact-name>${project.artifactId}-${project.version}</build-artifact-name>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <akka.version>2.4.9</akka.version>
         <scala.artifact.version>2.11</scala.artifact.version>
         <scala.version>${scala.artifact.version}.4</scala.version>
         <scoverage.plugin.version>1.1.1</scoverage.plugin.version>
-        <wookiee.core.version>1.1.13</wookiee.core.version>
+        <wookiee.core.version>1.2.0</wookiee.core.version>
     </properties>
 
     <groupId>com.webtrends</groupId>
     <artifactId>wookiee-zookeeper</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Component: Zookeeper</name>
     <description>Apache Zookeeper support for Wookiee, supports leader election and stand Zookeeper node operations.</description>
@@ -171,8 +172,8 @@
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-testkit_2.11</artifactId>
-            <version>2.3.4</version>
+            <artifactId>akka-testkit_${scala.artifact.version}</artifactId>
+            <version>${akka.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
