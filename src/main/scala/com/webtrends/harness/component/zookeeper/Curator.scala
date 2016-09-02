@@ -40,9 +40,9 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   def client = internalClient.get
 
   // list of all discovery services by basepath
-  private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[WookieeService]]()
+  private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[WookieeServiceDetails]]()
   // we manage an internal list of all discoverable provider
-  private val providers = mutable.Map[ProviderKey, ServiceProvider[WookieeService]]()
+  private val providers = mutable.Map[ProviderKey, ServiceProvider[WookieeServiceDetails]]()
 
   private[zookeeper] def createClient: CuratorFramework = {
     if (internalClient.isEmpty) {
@@ -87,7 +87,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     discoveries.foreach(x => x._2.close())
   }
 
-  def discovery(basePath:String, service: Option[ServiceInstance[WookieeService]] = None): ServiceDiscovery[WookieeService] = {
+  def discovery(basePath:String, service: Option[ServiceInstance[WookieeServiceDetails]] = None): ServiceDiscovery[WookieeServiceDetails] = {
     val key = DiscoveryKey(basePath, service match {
       case Some(s) => s.getName
       case _ => ""
@@ -95,10 +95,9 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     if (discoveries.contains(key)) {
       discoveries(key)
     } else  {
-      val s  = new JsonInstanceSerializer[WookieeService](classOf[WookieeService])
-      val discovery = ServiceDiscoveryBuilder.builder(classOf[WookieeService])
+      val discovery = ServiceDiscoveryBuilder.builder(classOf[WookieeServiceDetails])
         .client(client)
-        .serializer(s)
+        .serializer(new JsonInstanceSerializer[WookieeServiceDetails](classOf[WookieeServiceDetails]))
         .basePath(basePath)
         .build()
       service.foreach(it => discovery.registerService(it))
@@ -108,7 +107,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
-  def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeService] = {
+  def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeServiceDetails] = {
     val key = ProviderKey(basePath, name)
     if (providers.contains(key)) {
       providers(key)
@@ -120,7 +119,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
-  def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeService]]] = {
+  def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeServiceDetails]]] = {
     val filteredMap = name match {
       case Some(n) => providers.filter(k => k._1.equals(n))
       case None => providers
@@ -130,7 +129,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }.toMap
   }
 
-  def registerService(basePath:String, instance:ServiceInstance[WookieeService]): Unit = {
+  def registerService(basePath:String, instance:ServiceInstance[WookieeServiceDetails]): Unit = {
     // create a provider for the service if one has not already been created for it
     val key = ProviderKey(basePath, instance.getName)
     if (!providers.contains(key)) {

@@ -48,7 +48,6 @@ import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-@SerialVersionUID(1L) case class WookieeService @JsonCreator() (@JsonProperty("weight")  weight: Int)
 
 object ZookeeperActor {
   @SerialVersionUID(1L) private[zookeeper] case class GetLeaderRegistrars(path: String, namespace: Option[String])
@@ -306,10 +305,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
     try {
       if (curator.discovery(basePath).queryForInstance(name, id) == null) {
-        val builder = ServiceInstance.builder[WookieeService]()
+        val builder = ServiceInstance.builder[WookieeServiceDetails]()
           .id(id)
           .name(name)
-          .payload(WookieeService(0))
+          .payload(new WookieeServiceDetails(0))
           .port(port)
           .uriSpec(uriSpec)
         address match {
