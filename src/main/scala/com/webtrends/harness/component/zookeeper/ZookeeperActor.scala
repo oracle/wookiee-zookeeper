@@ -19,34 +19,36 @@
 
 package com.webtrends.harness.component.zookeeper
 
-import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.ZookeeperActor.GetLeaderRegistrars
-import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{UnregisterZookeeperEvent, RegisterZookeeperEvent}
+import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent._
 import com.webtrends.harness.component.zookeeper.ZookeeperService._
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService
-import com.webtrends.harness.health.{ComponentState, HealthComponent, ActorHealth}
+import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
+import com.webtrends.harness.health.{ActorHealth, ComponentState, HealthComponent}
 import com.webtrends.harness.logging.ActorLoggingAdapter
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.api.{CuratorEvent, BackgroundCallback}
+import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
-import org.apache.curator.framework.recipes.cache.{PathChildrenCacheEvent, PathChildrenCache, PathChildrenCacheListener}
-import org.apache.curator.framework.recipes.leader.{LeaderLatchListener, LeaderLatch}
+import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
-import org.apache.curator.x.discovery.{UriSpec, ServiceInstance}
+import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
+import org.codehaus.jackson.annotate.{JsonCreator, JsonProperty}
 
+import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import scala.collection.JavaConversions._
+
+@SerialVersionUID(1L) case class WookieeService @JsonCreator() (@JsonProperty("weight")  weight: Int)
 
 object ZookeeperActor {
   @SerialVersionUID(1L) private[zookeeper] case class GetLeaderRegistrars(path: String, namespace: Option[String])
@@ -118,7 +120,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * This is the main processing handler
-   * @return
+    *
+    * @return
    */
   def processing: Receive = baseProcessing orElse {
     // Set the data for the given path
@@ -303,9 +306,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
     try {
       if (curator.discovery(basePath).queryForInstance(name, id) == null) {
-        val builder = ServiceInstance.builder[Void]()
+        val builder = ServiceInstance.builder[WookieeService]()
           .id(id)
           .name(name)
+          .payload(WookieeService(0))
           .port(port)
           .uriSpec(uriSpec)
         address match {
@@ -530,7 +534,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when the connected state changes to Zookeeper
-   * @param cur
+    *
+    * @param cur
    * @param connectedState
    */
   def stateChanged(cur: CuratorFramework, connectedState: ConnectionState): Unit = {
@@ -539,7 +544,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when a child node changes for a path that we are watching
-   * @param curator
+    *
+    * @param curator
    * @param event
    */
   def childEvent(curator: CuratorFramework, event: PathChildrenCacheEvent): Unit = {

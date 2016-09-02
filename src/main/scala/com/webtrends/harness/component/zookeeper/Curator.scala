@@ -24,6 +24,7 @@ import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.logging.LoggingAdapter
+import org.apache.curator.x.discovery.details.JsonInstanceSerializer
 import org.apache.curator.x.discovery.{ServiceInstance, ServiceProvider, ServiceDiscoveryBuilder, ServiceDiscovery}
 import scala.collection.mutable
 import scala.collection.JavaConversions._
@@ -39,9 +40,9 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   def client = internalClient.get
 
   // list of all discovery services by basepath
-  private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[Void]]()
+  private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[WookieeService]]()
   // we manage an internal list of all discoverable provider
-  private val providers = mutable.Map[ProviderKey, ServiceProvider[Void]]()
+  private val providers = mutable.Map[ProviderKey, ServiceProvider[WookieeService]]()
 
   private[zookeeper] def createClient: CuratorFramework = {
     if (internalClient.isEmpty) {
@@ -86,7 +87,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     discoveries.foreach(x => x._2.close())
   }
 
-  def discovery(basePath:String, service: Option[ServiceInstance[Void]] = None): ServiceDiscovery[Void] = {
+  def discovery(basePath:String, service: Option[ServiceInstance[WookieeService]] = None): ServiceDiscovery[WookieeService] = {
     val key = DiscoveryKey(basePath, service match {
       case Some(s) => s.getName
       case _ => ""
@@ -94,8 +95,10 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     if (discoveries.contains(key)) {
       discoveries(key)
     } else  {
-      val discovery = ServiceDiscoveryBuilder.builder(classOf[Void])
+      val s  = new JsonInstanceSerializer[WookieeService](classOf[WookieeService])
+      val discovery = ServiceDiscoveryBuilder.builder(classOf[WookieeService])
         .client(client)
+        .serializer(s)
         .basePath(basePath)
         .build()
       service.foreach(it => discovery.registerService(it))
@@ -105,7 +108,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
-  def createServiceProvider(basePath:String, name:String) : ServiceProvider[Void] = {
+  def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeService] = {
     val key = ProviderKey(basePath, name)
     if (providers.contains(key)) {
       providers(key)
@@ -117,7 +120,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
-  def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[Void]]] = {
+  def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeService]]] = {
     val filteredMap = name match {
       case Some(n) => providers.filter(k => k._1.equals(n))
       case None => providers
@@ -127,7 +130,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }.toMap
   }
 
-  def registerService(basePath:String, instance:ServiceInstance[Void]): Unit = {
+  def registerService(basePath:String, instance:ServiceInstance[WookieeService]): Unit = {
     // create a provider for the service if one has not already been created for it
     val key = ProviderKey(basePath, instance.getName)
     if (!providers.contains(key)) {
@@ -150,7 +153,8 @@ object Curator {
   /**
    * Return the instance of the Curator client object. This is usually used after the harness has
    * called the apply method that takes the required settings.
-   * @return the singleton instance of the Curator
+    *
+    * @return the singleton instance of the Curator
    */
   def apply(settings: ZookeeperSettings): Curator = {
     curators.synchronized {
