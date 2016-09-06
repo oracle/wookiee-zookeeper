@@ -107,6 +107,10 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
+  def discovery(basePath: String, key: String): Option[ServiceDiscovery[WookieeServiceDetails]] = {
+    discoveries.get(DiscoveryKey(basePath, key))
+  }
+
   def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeServiceDetails] = {
     val key = ProviderKey(basePath, name)
     if (providers.contains(key)) {

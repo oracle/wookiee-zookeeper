@@ -10,12 +10,10 @@ public class WookieeServiceDetails {
         this.weight = weight;
     }
 
-    // Used by serializer
     public int getWeight() {
         return weight;
     }
 
-    // Used by serializer
     public void setWeight(int weight) {
         this.weight = weight;
     }

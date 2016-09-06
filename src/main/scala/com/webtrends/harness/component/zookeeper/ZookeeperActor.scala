@@ -64,6 +64,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     with Stash
     with NodeRegistration {
 
+  println("######### zk actor #############")
   import context.dispatcher
 
   private case class RegisterNode()
@@ -139,6 +140,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     case DeleteNode(path, optNamespace) => deleteNode(path, optNamespace)
     // query for service names
     case QueryForNames(basePath) => queryForNames(basePath)
+    // Update weight
+    case UpdateWeight(weight, basePath, name, id) => updateWeight(weight, basePath, name, id)
     // query for service instances
     case QueryForInstances(basePath, name, id) => queryForInstances(basePath, name, id)
     // make service discoverable
@@ -298,6 +301,22 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     } catch {
       case e:Exception =>
         log.error(e, "An error occurred trying to query for instances")
+        sender() ! Status.Failure(e)
+    }
+  }
+
+  private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
+    try {
+      curator.discovery(basePath, name) match {
+        case None =>
+        case Some(d) =>
+          val instance = d.queryForInstance(name, id)
+          instance.getPayload.setWeight(weight)
+          sender() ! Status.Success(())
+      }
+    } catch {
+      case e: Exception =>
+        log.error(e, s"An error occurred while trying to update weight for $basePath/$name/$id")
         sender() ! Status.Failure(e)
     }
   }

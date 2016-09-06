@@ -22,6 +22,8 @@ import akka.actor.Actor
 import akka.util.Timeout
 import org.apache.curator.x.discovery.UriSpec
 
+import scala.concurrent.Future
+
 /**
  * @author Michael Cuthbert on 7/9/15.
  */
@@ -52,4 +54,5 @@ trait Discoverable {
   def getInstances(basePath:String, name:String)(implicit timeout:Timeout) = service.getAllInstances(basePath, name)
 
   def getInstance(basePath:String, name:String)(implicit timeout:Timeout) = service.getInstance(basePath, name)
+  def updateWeight(weight: Int, basePath:String, name:String, id: String)(implicit timeout:Timeout) = service.updateWeight(weight, basePath, name, id)
 }
