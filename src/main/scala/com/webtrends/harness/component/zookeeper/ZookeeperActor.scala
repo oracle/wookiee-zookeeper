@@ -64,7 +64,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     with Stash
     with NodeRegistration {
 
-  println("######### zk actor #############")
   import context.dispatcher
 
   private case class RegisterNode()
