@@ -116,7 +116,11 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     if (providers.contains(key)) {
       providers(key)
     } else {
-      val provider = discovery(basePath).serviceProviderBuilder().serviceName(name).build()
+      val provider = discovery(basePath)
+        .serviceProviderBuilder()
+        .serviceName(name)
+        .providerStrategy(new WookieeWeightedStrategy())
+        .build()
       provider.start()
       providers.put(key, provider)
       provider
@@ -137,7 +141,11 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     // create a provider for the service if one has not already been created for it
     val key = ProviderKey(basePath, instance.getName)
     if (!providers.contains(key)) {
-      val provider = discovery(basePath, Some(instance)).serviceProviderBuilder().serviceName(instance.getName).build()
+      val provider = discovery(basePath, Some(instance))
+        .serviceProviderBuilder()
+        .providerStrategy(new WookieeWeightedStrategy())
+        .serviceName(instance.getName)
+        .build()
       provider.start()
       providers.put(key, provider)
     }
