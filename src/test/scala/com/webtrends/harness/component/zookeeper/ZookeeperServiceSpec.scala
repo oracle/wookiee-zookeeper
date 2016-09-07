@@ -18,18 +18,23 @@
  */
 package com.webtrends.harness.component.zookeeper
 
+import java.util.UUID
+
 import akka.actor.{ActorSystem, Identify}
 import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
+import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService.{UpdateWeight, QueryForInstances, MakeDiscoverable}
 import org.apache.curator.test.TestingServer
 import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.specs2.mutable.SpecificationWithJUnit
 import org.specs2.time.NoTimeConversions
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.{Success, Failure}
 
 class ZookeeperServiceSpec
   extends SpecificationWithJUnit with NoTimeConversions {
@@ -107,6 +112,49 @@ class ZookeeperServiceSpec
     " return an error when getting children for an invalid path " in {
       Await.result(service.getChildren("/testbad"), 1000 milliseconds) must throwA[Exception]
     }
+
+    "allow callers to discover commands " in {
+      val res = Await.result(zkActor ? MakeDiscoverable("base/path", "id", "testname", None, 8080, new UriSpec("file://foo")), 1 seconds)
+      res.asInstanceOf[Boolean] mustEqual true
+    }
+
+    "have default weight set to 0" in {
+      val basePath = "base/path"
+      val id = UUID.randomUUID().toString
+      val name = UUID.randomUUID().toString
+
+      val res = Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
+      res.asInstanceOf[Boolean] mustEqual true
+
+      val res2 = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
+      res2.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload.getWeight mustEqual 0
+    }
+
+    "update weight " in {
+      val basePath = "base/path"
+      val id = UUID.randomUUID().toString
+      val name = UUID.randomUUID().toString
+
+      val res = Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
+      res.asInstanceOf[Boolean] mustEqual true
+
+      val res2 = Await.result(zkActor ? UpdateWeight(100, basePath, name, id), 1 seconds)
+
+      eventually(2, 6 seconds) {
+        val res2 = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
+        res2.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload.getWeight
+      } mustEqual 100
+
+
+    }
+
+    "only update weight on a set interval " in {
+      failure("todo")
+    }
+
+    "use set weight interval defined in config" in {
+      failure("todo")
+    }
   }
 
   step {
@@ -116,6 +164,9 @@ class ZookeeperServiceSpec
 
   def loadConfig: Config = {
     ConfigFactory.parseString("""
+      discoverability {
+        set-weight-interval = 5s
+      }
       wookiee-zookeeper {
         quorum = "%s"
       }
