@@ -42,9 +42,9 @@ import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListe
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
-import org.codehaus.jackson.annotate.{JsonCreator, JsonProperty}
 
 import scala.collection.JavaConversions._
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -66,14 +66,22 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   import context.dispatcher
 
-  private case class RegisterNode()
 
-  protected val curator = Curator(settings)
+  private case class RegisterNode()
+  private case class WeightKey(basePath: String, name: String, id: String)
+  private case object SetWeight
+
+  private val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
+
   private var currentState = ConnectionState.LOST
-  protected val callback = new DefaultCallback
   private var stateRegistrars: Set[ActorRef] = Set.empty
   private var childRegistrars: Map[(String, Option[String]), CacheEntry] = Map.empty
   private var leadershipRegistrars: Map[(String, Option[String]), LeaderEntry] = Map.empty
+  private var weightRegistrars: Map[WeightKey, Int] = Map.empty
+
+  protected val curator = Curator(settings)
+  protected val callback = new DefaultCallback
+
 
   @SerialVersionUID(1L) private case class CacheEntry(cache: PathChildrenCache, registrars: Set[ActorRef])
 
@@ -89,6 +97,13 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       ZookeeperService.registerMediator(self)
       DiscoverableService.registerMediator(self)
       startCurator
+
+      context.system.scheduler.schedule(
+        setWeightInterval seconds,
+        setWeightInterval seconds,
+        self,
+        SetWeight)
+
     }).recover({
       case e: Exception => log.error("An error occurred trying to start curator.", e)
     })
@@ -123,6 +138,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     * @return
    */
   def processing: Receive = baseProcessing orElse {
+    // Set the weight we've been collecting
+    case SetWeight => setWeight()
     // Set the data for the given path
     case SetPathData(path, data, create, ephemeral, optNamespace, async) => setData(path, data, create, ephemeral, optNamespace, async)
     // Get data for the given path
@@ -304,21 +321,26 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
-    try {
-      curator.discovery(basePath, name) match {
-        case None =>
-        case Some(d) =>
-          val instance = d.queryForInstance(name, id)
-          instance.getPayload.setWeight(weight)
-          d.updateService(instance)
-          sender() ! Status.Success(())
+  private def setWeight() = {
+    weightRegistrars.foreach { case (key, weight) =>
+      try {
+        curator.discovery(key.basePath, key.name) match {
+          case None =>
+          case Some(d) =>
+            val instance = d.queryForInstance(key.name, key.id)
+            instance.getPayload.setWeight(weight)
+            d.updateService(instance)
+            sender() ! Status.Success(())
+        }
+      } catch {
+        case e: Exception =>
+          log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
       }
-    } catch {
-      case e: Exception =>
-        log.error(e, s"An error occurred while trying to update weight for $basePath/$name/$id")
-        sender() ! Status.Failure(e)
     }
+  }
+
+  private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
+    weightRegistrars += WeightKey(basePath, name, id) -> weight
   }
 
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
