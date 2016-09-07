@@ -311,6 +311,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         case Some(d) =>
           val instance = d.queryForInstance(name, id)
           instance.getPayload.setWeight(weight)
+          d.updateService(instance)
           sender() ! Status.Success(())
       }
     } catch {
