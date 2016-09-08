@@ -69,17 +69,16 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private case class RegisterNode()
   private case class WeightKey(basePath: String, name: String, id: String)
+  private case class WeightState(current: Int, stored: Option[Int])
   private case object SetWeight
 
   private val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
-  private var lastWeightUpdatedTime = System.currentTimeMillis
-  private var lastWeightSetTime = System.currentTimeMillis
 
   private var currentState = ConnectionState.LOST
   private var stateRegistrars: Set[ActorRef] = Set.empty
   private var childRegistrars: Map[(String, Option[String]), CacheEntry] = Map.empty
   private var leadershipRegistrars: Map[(String, Option[String]), LeaderEntry] = Map.empty
-  private var weightRegistrars: Map[WeightKey, Int] = Map.empty
+  private var weightRegistrars: Map[WeightKey, WeightState] = Map.empty
 
   protected val curator = Curator(settings)
   protected val callback = new DefaultCallback
@@ -324,29 +323,28 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   }
 
   private def setWeight() = {
-    if ( lastWeightUpdatedTime > lastWeightSetTime) {
-      lastWeightSetTime = System.currentTimeMillis
-      weightRegistrars.foreach { case (key, weight) =>
-        try {
-          curator.discovery(key.basePath, key.name) match {
-            case None =>
-            case Some(d) =>
-              val instance = d.queryForInstance(key.name, key.id)
-              instance.getPayload.setWeight(weight)
-              d.updateService(instance)
-              sender() ! Status.Success(())
-          }
-        } catch {
-          case e: Exception =>
-            log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
+    weightRegistrars.filter { case (_, ws) => ws.stored.isEmpty || ws.current != ws.stored.get }.foreach { case (key, weight) =>
+      try {
+        curator.discovery(key.basePath, key.name) match {
+          case None =>
+          case Some(d) =>
+            val instance = d.queryForInstance(key.name, key.id)
+            instance.getPayload.setWeight(weight.current)
+            weightRegistrars += key -> WeightState(weight.current, Some(weight.current))
+            d.updateService(instance)
+            sender() ! Status.Success(())
         }
+      } catch {
+        case e: Exception =>
+          log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
       }
     }
   }
 
   private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
-    weightRegistrars += WeightKey(basePath, name, id) -> weight
-    lastWeightUpdatedTime = System.currentTimeMillis
+    val key = WeightKey(basePath, name, id)
+    val storedWeight = weightRegistrars.get(key).flatMap(w => w.stored)
+    weightRegistrars += key ->  WeightState(weight, storedWeight)
     sender() ! true
   }
 
