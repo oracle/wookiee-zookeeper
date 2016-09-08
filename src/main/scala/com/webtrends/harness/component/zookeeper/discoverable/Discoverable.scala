@@ -30,8 +30,6 @@ import scala.concurrent.Future
 trait Discoverable {
   this: Actor =>
 
-  def weight = 0
-
   import this.context.system
   private lazy val service = DiscoverableService()
   val port = context.system.settings.config.getInt("akka.remote.netty.tcp.port")
