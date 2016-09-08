@@ -44,7 +44,8 @@ class ZookeeperServiceSpec
   val zkServer = new TestingServer()
   implicit val system = ActorSystem("test", loadConfig)
 
-  lazy val zkActor = system.actorOf(ZookeeperActor.props(ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))))
+  lazy val zkActor = system.actorOf(TestZookeeperActor.props(ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))))
+
   implicit val to = Timeout(2 seconds)
 
   Await.result(zkActor ? Identify("xyz123"), 2 seconds)
@@ -147,30 +148,32 @@ class ZookeeperServiceSpec
       result.getPayload.getWeight must be_==(100).eventually(2, 6 seconds)
     }
 
-//    "only update weight on a set interval " in {
-//      val basePath = "base/path"
-//      val id = UUID.randomUUID().toString
-//      val name = UUID.randomUUID().toString
-//
-//      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
-//
-//      // Send update weight messages
-//      val watcherActor = system.actorOf(Props(classOf[WeightWatcherActor], zkActor, basePath, name, id))
-//      val updateActor = system.actorOf(Props(classOf[WeightUpdateActor], zkActor, basePath, name, id))
-//
-//
-//      Await.reswatcherActor ? "getSample"
-//      val f = Future {
-//        Thread.sleep(60000)
-//        1
-//      }
-//
-//      Await.result(f, 30 seconds) mustEqual 1
-//    }
-//
-//    "use set weight interval defined in config" in {
-//      failure("todo")
-//    }
+    "only update weight on a set interval " in {
+      val basePath = "base/path"
+      val id = UUID.randomUUID().toString
+      val name = UUID.randomUUID().toString
+
+      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 second)
+
+      zkActor ! UpdateWeight(100, basePath, name, id)
+      Thread.sleep(3000)
+      zkActor ! UpdateWeight(100, basePath, name, id)
+      Thread.sleep(3000)
+
+
+      val times = Await.result(zkActor ? GetSetWeightTimes, 1 seconds).asInstanceOf[Seq[DateTime]]
+      val timeDiffs = times
+        .sliding(2)
+        .map{case Seq(x, y, _*) => Math.round((y.getMillis - x.getMillis) / 1000.0)}
+        .toSet
+
+      timeDiffs.size mustEqual 1
+      timeDiffs.head mustEqual 2
+    }
+
+    "use set weight interval defined in config" in {
+      Await.result(zkActor ? GetSetWeightInterval, 3 second).asInstanceOf[Long] mustEqual 2
+    }
   }
 
   step {
@@ -196,14 +199,14 @@ class WeightWatcherActor(zkActor: ActorRef, basePath: String, name: String, id: 
   implicit val timeout = Timeout.durationToTimeout(10 seconds)
 
   var weight = Seq.empty[Int]
-  context.system.scheduler.schedule(0 milliseconds, 2000 milliseconds, self, "msg")
+  context.system.scheduler.schedule(0 milliseconds, 100 milliseconds, self, "msg")
 
   override def receive: Actor.Receive = {
     case "msg" =>
       zkActor ? QueryForInstances(basePath, name, Some(id)) onComplete {
         case Success(s) =>
-          val p = s.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload
-          weight = weight ++ Seq(p.getWeight)
+          val w = s.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload.getWeight
+          weight = weight ++ Seq(w)
         case Failure(f) =>
       }
     case "getSample" => sender() ! weight
@@ -211,10 +214,11 @@ class WeightWatcherActor(zkActor: ActorRef, basePath: String, name: String, id: 
     case _ =>
   }
 }
+
 class WeightUpdateActor(zkActor: ActorRef, basePath: String, name: String, id: String) extends Actor {
   import context.dispatcher
 
-  context.system.scheduler.schedule(0 milliseconds, 1000 milliseconds, self, "msg")
+  context.system.scheduler.schedule(0 milliseconds, 1 second, self, "msg")
   var weight = 100
   override def receive: Receive = {
     case "msg" =>
