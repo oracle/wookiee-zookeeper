@@ -72,6 +72,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private case object SetWeight
 
   private val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
+  private var lastWeightUpdatedTime = System.currentTimeMillis
+  private var lastWeightSetTime = System.currentTimeMillis
 
   private var currentState = ConnectionState.LOST
   private var stateRegistrars: Set[ActorRef] = Set.empty
@@ -322,25 +324,29 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   }
 
   private def setWeight() = {
-    weightRegistrars.foreach { case (key, weight) =>
-      try {
-        curator.discovery(key.basePath, key.name) match {
-          case None =>
-          case Some(d) =>
-            val instance = d.queryForInstance(key.name, key.id)
-            instance.getPayload.setWeight(weight)
-            d.updateService(instance)
-            sender() ! Status.Success(())
+    if ( lastWeightUpdatedTime > lastWeightSetTime) {
+      lastWeightSetTime = System.currentTimeMillis
+      weightRegistrars.foreach { case (key, weight) =>
+        try {
+          curator.discovery(key.basePath, key.name) match {
+            case None =>
+            case Some(d) =>
+              val instance = d.queryForInstance(key.name, key.id)
+              instance.getPayload.setWeight(weight)
+              d.updateService(instance)
+              sender() ! Status.Success(())
+          }
+        } catch {
+          case e: Exception =>
+            log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
         }
-      } catch {
-        case e: Exception =>
-          log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
       }
     }
   }
 
   private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
     weightRegistrars += WeightKey(basePath, name, id) -> weight
+    lastWeightUpdatedTime = System.currentTimeMillis
   }
 
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
