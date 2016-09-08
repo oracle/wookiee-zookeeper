@@ -24,6 +24,7 @@ import akka.pattern.ask
 import com.typesafe.config.Config
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.service.test.config.TestConfig
+import org.joda.time.DateTime
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -36,6 +37,7 @@ object TestZookeeperActor {
 
   def props(config: Config): Props = Props(classOf[TestZookeeperActor], ZookeeperSettings(config))
   def props(zookeeperQuorum: String)(implicit system: ActorSystem): Props = Props(classOf[TestZookeeperActor], getConfig(zookeeperQuorum))
+  def props(settings:ZookeeperSettings, clusterEnabled:Boolean=false)(implicit system: ActorSystem): Props = Props(classOf[TestZookeeperActor], settings)
 
   def apply(zookeeperQuorum: String)(implicit system: ActorSystem): ActorRef = {
 
@@ -60,6 +62,23 @@ object TestZookeeperActor {
   }
 }
 
+case class GetSetWeightInterval()
+case class GetSetWeightTimes()
+
+
 class TestZookeeperActor(settings: ZookeeperSettings) extends ZookeeperActor(settings) {
+
+  var setWeightTimes = Seq[DateTime]()
+
+  override def processing: Receive = ( {
+    case GetSetWeightInterval => sender() ! setWeightInterval
+    case GetSetWeightTimes => sender() ! setWeightTimes
+  }: Receive) orElse super.processing
+
+  override protected def setWeight() = {
+    super.setWeight()
+    setWeightTimes ++= Seq(DateTime.now())
+  }
+
   log.info(s"Create the TestZookeeperActor and attaching to Zookeeper at ${context.system.settings.config.getString("wookiee-zookeeper.quorum")}")
 }

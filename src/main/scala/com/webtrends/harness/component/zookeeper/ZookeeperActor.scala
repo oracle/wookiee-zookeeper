@@ -72,7 +72,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private case class WeightState(current: Int, stored: Option[Int])
   private case object SetWeight
 
-  private val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
+  protected val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
 
   private var currentState = ConnectionState.LOST
   private var stateRegistrars: Set[ActorRef] = Set.empty
@@ -322,7 +322,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def setWeight() = {
+  protected def setWeight() = {
     weightRegistrars.filter { case (_, ws) => ws.stored.isEmpty || ws.current != ws.stored.get }.foreach { case (key, weight) =>
       try {
         curator.discovery(key.basePath, key.name) match {
@@ -332,7 +332,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
             instance.getPayload.setWeight(weight.current)
             weightRegistrars += key -> WeightState(weight.current, Some(weight.current))
             d.updateService(instance)
-            sender() ! Status.Success(())
         }
       } catch {
         case e: Exception =>
