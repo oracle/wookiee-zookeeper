@@ -20,7 +20,8 @@ package com.webtrends.harness.component.zookeeper
 
 import java.util.UUID
 
-import akka.actor.{ActorSystem, Identify}
+import akka.actor.Actor.Receive
+import akka.actor._
 import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
@@ -29,10 +30,11 @@ import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableServic
 import org.apache.curator.test.TestingServer
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
+import org.joda.time.DateTime
 import org.specs2.mutable.SpecificationWithJUnit
 import org.specs2.time.NoTimeConversions
 
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 
@@ -123,8 +125,7 @@ class ZookeeperServiceSpec
       val id = UUID.randomUUID().toString
       val name = UUID.randomUUID().toString
 
-      val res = Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
-      res.asInstanceOf[Boolean] mustEqual true
+      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
 
       val res2 = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
       res2.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload.getWeight mustEqual 0
@@ -135,26 +136,41 @@ class ZookeeperServiceSpec
       val id = UUID.randomUUID().toString
       val name = UUID.randomUUID().toString
 
-      val res = Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
-      res.asInstanceOf[Boolean] mustEqual true
+      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id), 1 seconds)
 
-      val res2 = Await.result(zkActor ? UpdateWeight(100, basePath, name, id), 1 seconds)
+      def result = {
+        val r = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
+        r.asInstanceOf[ServiceInstance[WookieeServiceDetails]]
+      }
 
-      eventually(2, 6 seconds) {
-        val res2 = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
-        res2.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload.getWeight
-      } mustEqual 100
-
-
+      result.getPayload.getWeight must be_==(100).eventually(2, 6 seconds)
     }
 
-    "only update weight on a set interval " in {
-      failure("todo")
-    }
-
-    "use set weight interval defined in config" in {
-      failure("todo")
-    }
+//    "only update weight on a set interval " in {
+//      val basePath = "base/path"
+//      val id = UUID.randomUUID().toString
+//      val name = UUID.randomUUID().toString
+//
+//      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
+//
+//      // Send update weight messages
+//      val watcherActor = system.actorOf(Props(classOf[WeightWatcherActor], zkActor, basePath, name, id))
+//      val updateActor = system.actorOf(Props(classOf[WeightUpdateActor], zkActor, basePath, name, id))
+//
+//
+//      Await.reswatcherActor ? "getSample"
+//      val f = Future {
+//        Thread.sleep(60000)
+//        1
+//      }
+//
+//      Await.result(f, 30 seconds) mustEqual 1
+//    }
+//
+//    "use set weight interval defined in config" in {
+//      failure("todo")
+//    }
   }
 
   step {
@@ -165,12 +181,45 @@ class ZookeeperServiceSpec
   def loadConfig: Config = {
     ConfigFactory.parseString("""
       discoverability {
-        set-weight-interval = 5s
+        set-weight-interval = 2s
       }
       wookiee-zookeeper {
         quorum = "%s"
       }
                               """.format(zkServer.getConnectString)
     ).withFallback(ConfigFactory.load()).resolve
+  }
+}
+
+class WeightWatcherActor(zkActor: ActorRef, basePath: String, name: String, id: String) extends Actor {
+  import context.dispatcher
+  implicit val timeout = Timeout.durationToTimeout(10 seconds)
+
+  var weight = Seq.empty[Int]
+  context.system.scheduler.schedule(0 milliseconds, 2000 milliseconds, self, "msg")
+
+  override def receive: Actor.Receive = {
+    case "msg" =>
+      zkActor ? QueryForInstances(basePath, name, Some(id)) onComplete {
+        case Success(s) =>
+          val p = s.asInstanceOf[ServiceInstance[WookieeServiceDetails]].getPayload
+          weight = weight ++ Seq(p.getWeight)
+        case Failure(f) =>
+      }
+    case "getSample" => sender() ! weight
+
+    case _ =>
+  }
+}
+class WeightUpdateActor(zkActor: ActorRef, basePath: String, name: String, id: String) extends Actor {
+  import context.dispatcher
+
+  context.system.scheduler.schedule(0 milliseconds, 1000 milliseconds, self, "msg")
+  var weight = 100
+  override def receive: Receive = {
+    case "msg" =>
+      zkActor ! UpdateWeight(weight, basePath, name, id)
+      weight = weight - 1
+    case _ =>
   }
 }

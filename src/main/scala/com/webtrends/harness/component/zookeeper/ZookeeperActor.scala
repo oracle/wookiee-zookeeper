@@ -341,6 +341,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
     weightRegistrars += WeightKey(basePath, name, id) -> weight
+    sender() ! true
   }
 
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
