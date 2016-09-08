@@ -19,34 +19,35 @@
 
 package com.webtrends.harness.component.zookeeper
 
-import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.ZookeeperActor.GetLeaderRegistrars
-import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{UnregisterZookeeperEvent, RegisterZookeeperEvent}
+import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent._
 import com.webtrends.harness.component.zookeeper.ZookeeperService._
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService
-import com.webtrends.harness.health.{ComponentState, HealthComponent, ActorHealth}
+import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
+import com.webtrends.harness.health.{ActorHealth, ComponentState, HealthComponent}
 import com.webtrends.harness.logging.ActorLoggingAdapter
 import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.api.{CuratorEvent, BackgroundCallback}
+import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
-import org.apache.curator.framework.recipes.cache.{PathChildrenCacheEvent, PathChildrenCache, PathChildrenCacheListener}
-import org.apache.curator.framework.recipes.leader.{LeaderLatchListener, LeaderLatch}
+import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
-import org.apache.curator.x.discovery.{UriSpec, ServiceInstance}
+import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
 
+import scala.collection.JavaConversions._
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import scala.collection.JavaConversions._
+
 
 object ZookeeperActor {
   @SerialVersionUID(1L) private[zookeeper] case class GetLeaderRegistrars(path: String, namespace: Option[String])
@@ -65,14 +66,22 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   import context.dispatcher
 
-  private case class RegisterNode()
 
-  protected val curator = Curator(settings)
+  private case class RegisterNode()
+  private case class WeightKey(basePath: String, name: String, id: String)
+  private case object SetWeight
+
+  private val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
+
   private var currentState = ConnectionState.LOST
-  protected val callback = new DefaultCallback
   private var stateRegistrars: Set[ActorRef] = Set.empty
   private var childRegistrars: Map[(String, Option[String]), CacheEntry] = Map.empty
   private var leadershipRegistrars: Map[(String, Option[String]), LeaderEntry] = Map.empty
+  private var weightRegistrars: Map[WeightKey, Int] = Map.empty
+
+  protected val curator = Curator(settings)
+  protected val callback = new DefaultCallback
+
 
   @SerialVersionUID(1L) private case class CacheEntry(cache: PathChildrenCache, registrars: Set[ActorRef])
 
@@ -88,6 +97,13 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       ZookeeperService.registerMediator(self)
       DiscoverableService.registerMediator(self)
       startCurator
+
+      context.system.scheduler.schedule(
+        setWeightInterval seconds,
+        setWeightInterval seconds,
+        self,
+        SetWeight)
+
     }).recover({
       case e: Exception => log.error("An error occurred trying to start curator.", e)
     })
@@ -118,9 +134,12 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * This is the main processing handler
-   * @return
+    *
+    * @return
    */
   def processing: Receive = baseProcessing orElse {
+    // Set the weight we've been collecting
+    case SetWeight => setWeight()
     // Set the data for the given path
     case SetPathData(path, data, create, ephemeral, optNamespace, async) => setData(path, data, create, ephemeral, optNamespace, async)
     // Get data for the given path
@@ -137,6 +156,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     case DeleteNode(path, optNamespace) => deleteNode(path, optNamespace)
     // query for service names
     case QueryForNames(basePath) => queryForNames(basePath)
+    // Update weight
+    case UpdateWeight(weight, basePath, name, id) => updateWeight(weight, basePath, name, id)
     // query for service instances
     case QueryForInstances(basePath, name, id) => queryForInstances(basePath, name, id)
     // make service discoverable
@@ -300,12 +321,36 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
+  private def setWeight() = {
+    weightRegistrars.foreach { case (key, weight) =>
+      try {
+        curator.discovery(key.basePath, key.name) match {
+          case None =>
+          case Some(d) =>
+            val instance = d.queryForInstance(key.name, key.id)
+            instance.getPayload.setWeight(weight)
+            d.updateService(instance)
+            sender() ! Status.Success(())
+        }
+      } catch {
+        case e: Exception =>
+          log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
+      }
+    }
+  }
+
+  private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
+    weightRegistrars += WeightKey(basePath, name, id) -> weight
+    sender() ! true
+  }
+
   private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
     try {
       if (curator.discovery(basePath).queryForInstance(name, id) == null) {
-        val builder = ServiceInstance.builder[Void]()
+        val builder = ServiceInstance.builder[WookieeServiceDetails]()
           .id(id)
           .name(name)
+          .payload(new WookieeServiceDetails(0))
           .port(port)
           .uriSpec(uriSpec)
         address match {
@@ -530,7 +575,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when the connected state changes to Zookeeper
-   * @param cur
+    *
+    * @param cur
    * @param connectedState
    */
   def stateChanged(cur: CuratorFramework, connectedState: ConnectionState): Unit = {
@@ -539,7 +585,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when a child node changes for a path that we are watching
-   * @param curator
+    *
+    * @param curator
    * @param event
    */
   def childEvent(curator: CuratorFramework, event: PathChildrenCacheEvent): Unit = {
