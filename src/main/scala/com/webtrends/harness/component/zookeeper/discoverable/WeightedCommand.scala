@@ -12,7 +12,7 @@ trait WeightedCommand extends Command {
   val basePath: String
   val commandId: String
 
-  def updateWeight(weight: Int): Future[Unit] = updateWeight(weight, basePath, commandName, commandId)
+  def updateWeight(weight: Int): Future[Boolean] = updateWeight(weight, basePath, commandName, commandId)
 
   override def receive =({
     case Weight(w) => updateWeight(w)
