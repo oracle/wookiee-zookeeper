@@ -27,7 +27,7 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
           case Some(cm) =>
             getInstance(basePath, name) onComplete {
               case Success(in) =>
-                (cm ? ExecuteRemoteCommand[T](name, in.getAddress, in.getPort, bean))(timeout).mapTo[CommandResponse[T]] onComplete {
+                (cm ? ExecuteRemoteCommand[T](name, in.getAddress, in.getPort, bean, timeout))(timeout).mapTo[CommandResponse[T]] onComplete {
                   case Success(s) => p success s
                   case Failure(f) => p failure CommandException("CommandManager", f)
                 }
