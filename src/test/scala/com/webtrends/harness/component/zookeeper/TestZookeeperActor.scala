@@ -63,22 +63,13 @@ object TestZookeeperActor {
 }
 
 case class GetSetWeightInterval()
-case class GetSetWeightTimes()
-
 
 class TestZookeeperActor(settings: ZookeeperSettings) extends ZookeeperActor(settings) {
 
-  var setWeightTimes = Seq[DateTime]()
-
   override def processing: Receive = ( {
     case GetSetWeightInterval => sender() ! setWeightInterval
-    case GetSetWeightTimes => sender() ! setWeightTimes
   }: Receive) orElse super.processing
 
-  override protected def setWeight() = {
-    super.setWeight()
-    setWeightTimes ++= Seq(DateTime.now())
-  }
 
   log.info(s"Create the TestZookeeperActor and attaching to Zookeeper at ${context.system.settings.config.getString("wookiee-zookeeper.quorum")}")
 }

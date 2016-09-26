@@ -140,7 +140,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
    */
   def processing: Receive = baseProcessing orElse {
     // Set the weight we've been collecting
-    case SetWeight => setWeight()
+    case SetWeight => setAllWeights()
     // Set the data for the given path
     case SetPathData(path, data, create, ephemeral, optNamespace, async) => setData(path, data, create, ephemeral, optNamespace, async)
     // Get data for the given path
@@ -158,7 +158,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // query for service names
     case QueryForNames(basePath) => queryForNames(basePath)
     // Update weight
-    case UpdateWeight(weight, basePath, name, id) => updateWeight(weight, basePath, name, id)
+    case UpdateWeight(weight, basePath, name, id, forceSet) => updateWeight(weight, basePath, name, id, forceSet)
     // query for service instances
     case QueryForInstances(basePath, name, id) => queryForInstances(basePath, name, id)
     // make service discoverable
@@ -322,28 +322,34 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  protected def setWeight() = {
+  protected def setAllWeights() = {
     weightRegistrars.filter { case (_, ws) => ws.stored.isEmpty || ws.current != ws.stored.get }.foreach { case (key, weight) =>
-      try {
-        curator.discovery(key.basePath, key.name) match {
-          case None =>
-          case Some(d) =>
-            val instance = d.queryForInstance(key.name, key.id)
-            instance.getPayload.setWeight(weight.current)
-            weightRegistrars += key -> WeightState(weight.current, Some(weight.current))
-            d.updateService(instance)
-        }
-      } catch {
-        case e: Exception =>
-          log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
-      }
+      setWeight(key, weight)
     }
   }
 
-  private def updateWeight(weight: Int, basePath: String, name: String, id: String) = {
+  protected def setWeight(key: WeightKey, weight: WeightState) = {
+    try {
+      curator.discovery(key.basePath, key.name) match {
+        case None =>
+        case Some(d) =>
+          val instance = d.queryForInstance(key.name, key.id)
+          instance.getPayload.setWeight(weight.current)
+          weightRegistrars += key -> WeightState(weight.current, Some(weight.current))
+          d.updateService(instance)
+      }
+    } catch {
+      case e: Exception =>
+        log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
+    }
+  }
+
+  private def updateWeight(weight: Int, basePath: String, name: String, id: String, forceSet: Boolean) = {
     val key = WeightKey(basePath, name, id)
     val storedWeight = weightRegistrars.get(key).flatMap(w => w.stored)
-    weightRegistrars += key ->  WeightState(weight, storedWeight)
+    val weightState = WeightState(weight, storedWeight)
+    weightRegistrars += key -> weightState
+    if (forceSet == true) { setWeight(key, weightState) }
     sender() ! true
   }
 

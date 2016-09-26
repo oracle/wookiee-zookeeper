@@ -61,8 +61,8 @@ private[harness] class DiscoverableService()(implicit system: ActorSystem) {
     (mediator.get ? GetAllInstances(basePath, name)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
   }
 
-  def updateWeight(weight: Int, basePath:String, name:String, id: String)(implicit timeout:Timeout) : Future[Boolean] = {
-    (mediator.get ? UpdateWeight(weight, basePath, name, id)).mapTo[Boolean]
+  def updateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean)(implicit timeout:Timeout) : Future[Boolean] = {
+    (mediator.get ? UpdateWeight(weight, basePath, name, id, forceSet)).mapTo[Boolean]
   }
 }
 
@@ -81,7 +81,7 @@ object DiscoverableService {
 
   @SerialVersionUID(1L) private[harness] case class QueryForNames(basePath:String)
 
-  @SerialVersionUID(1L) private[harness] case class UpdateWeight(weight: Int, basePath:String, name:String, id: String)
+  @SerialVersionUID(2L) private[harness] case class UpdateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean)
 
   @SerialVersionUID(1L) private[harness] case class QueryForInstances(basePath:String, name:String, id:Option[String]=None)
 

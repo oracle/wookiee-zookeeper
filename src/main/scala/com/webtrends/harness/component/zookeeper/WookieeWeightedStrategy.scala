@@ -15,10 +15,16 @@ class WookieeWeightedStrategy extends ProviderStrategy[WookieeServiceDetails] {
     if(instances.isEmpty) {
       null
     } else if (instances.map(x => x.getPayload.getWeight).toSet.size == 1) {
-      val thisIndex = Math.abs(this.index.getAndIncrement())
-      instances(thisIndex % instances.size)
+      roundRobin(instances)
     } else {
-      instances.sortBy(x => x.getPayload.getWeight).head
+      val headWeight = instances.sortBy(x => x.getPayload.getWeight).head.getPayload.getWeight
+      roundRobin(instances.filter(x => x.getPayload.getWeight == headWeight))
     }
+  }
+
+  def roundRobin(instances: scala.collection.mutable.Buffer[ServiceInstance[WookieeServiceDetails]]): ServiceInstance[WookieeServiceDetails] = {
+    val thisIndex = Math.abs(this.index.getAndIncrement())
+    val size = instances.size
+    instances(thisIndex % size)
   }
 }
