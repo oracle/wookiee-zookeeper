@@ -4,7 +4,7 @@ import com.webtrends.harness.command.Command
 
 import scala.concurrent.Future
 
-case class Weight(weight: Int)
+case class Weight(weight: Int, forceSet: Boolean)
 
 trait WeightedCommand extends Command {
   this: Discoverable =>
@@ -12,9 +12,10 @@ trait WeightedCommand extends Command {
   val basePath: String
   val commandId: String
 
-  def updateWeight(weight: Int): Future[Boolean] = updateWeight(weight, basePath, commandName, commandId)
+  def updateWeight(weight: Int, forceSet: Boolean): Future[Boolean] =
+    updateWeight(weight, basePath, commandName, commandId, forceSet)
 
   override def receive =({
-    case Weight(w) => updateWeight(w)
+    case Weight(w, f) => updateWeight(w, f)
   }: Receive) orElse super.receive
 }

@@ -54,5 +54,6 @@ trait Discoverable {
   def getInstances(basePath:String, name:String)(implicit timeout:Timeout) = service.getAllInstances(basePath, name)
 
   def getInstance(basePath:String, name:String)(implicit timeout:Timeout) = service.getInstance(basePath, name)
-  def updateWeight(weight: Int, basePath:String, name:String, id: String)(implicit timeout:Timeout) = service.updateWeight(weight, basePath, name, id)
+  def updateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean = false)(implicit timeout:Timeout) =
+    service.updateWeight(weight, basePath, name, id, forceSet)
 }

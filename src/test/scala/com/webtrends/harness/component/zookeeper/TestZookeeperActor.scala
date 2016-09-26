@@ -75,8 +75,8 @@ class TestZookeeperActor(settings: ZookeeperSettings) extends ZookeeperActor(set
     case GetSetWeightTimes => sender() ! setWeightTimes
   }: Receive) orElse super.processing
 
-  override protected def setWeight() = {
-    super.setWeight()
+  override protected def setAllWeights() = {
+    super.setAllWeights()
     setWeightTimes ++= Seq(DateTime.now())
   }
 
