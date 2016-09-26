@@ -138,7 +138,7 @@ class ZookeeperServiceSpec
       val name = UUID.randomUUID().toString
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 seconds)
-      Await.result(zkActor ? UpdateWeight(100, basePath, name, id), 1 seconds)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, false), 1 seconds)
 
       def result = {
         val r = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 seconds)
@@ -155,9 +155,9 @@ class ZookeeperServiceSpec
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 second)
 
-      zkActor ! UpdateWeight(100, basePath, name, id)
+      zkActor ! UpdateWeight(100, basePath, name, id, false)
       Thread.sleep(3000)
-      zkActor ! UpdateWeight(100, basePath, name, id)
+      zkActor ! UpdateWeight(100, basePath, name, id, false)
       Thread.sleep(3000)
 
 
@@ -169,6 +169,20 @@ class ZookeeperServiceSpec
 
       timeDiffs.size mustEqual 1
       timeDiffs.head mustEqual 2
+    }
+
+    "weight is updated in zookeeper if forceSet is true " in {
+      val basePath = "base/path"
+      val id = UUID.randomUUID().toString
+      val name = UUID.randomUUID().toString
+
+      Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), 1 second)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, true), 1 second)
+
+      val res = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), 1 second).asInstanceOf[ServiceInstance[WookieeServiceDetails]]
+
+      res.getPayload.getWeight mustEqual 100
+
     }
 
     "use set weight interval defined in config" in {
@@ -222,7 +236,7 @@ class WeightUpdateActor(zkActor: ActorRef, basePath: String, name: String, id: S
   var weight = 100
   override def receive: Receive = {
     case "msg" =>
-      zkActor ! UpdateWeight(weight, basePath, name, id)
+      zkActor ! UpdateWeight(weight, basePath, name, id, false)
       weight = weight - 1
     case _ =>
   }
