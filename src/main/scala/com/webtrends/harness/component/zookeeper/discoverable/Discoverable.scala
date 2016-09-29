@@ -40,15 +40,22 @@ trait Discoverable {
   def queryForInstances(basePath:String, name:String, id:Option[String]=None)
                        (implicit timeout:Timeout) = service.queryForInstances(basePath, name, id)
 
-  def makeDiscoverable(basePath:String, id:String, name:String)(implicit timeout:Timeout) = {
+  def makeDiscoverable(basePath:String, id:String, name:String)(implicit timeout:Timeout): Future[Boolean] = {
     val add = address match {
       case "127.0.0.1" | "localhost" | "0.0.0.0" => (None, "[SERVER]")
       case a => (Some(a), a)
     }
-    service.makeDiscoverable(basePath, id, name, add._1,
-      port,
-      new UriSpec(s"akka.tcp://server@${add._2}:$port/$name")
-    )
+    makeDiscoverable(basePath, id, name, add._1, port, new UriSpec(s"akka.tcp://server@${add._2}:$port/$name"))
+  }
+
+  def makeDiscoverable(
+                        basePath:String,
+                        id:String,
+                        name:String,
+                        address: Option[String],
+                        port: Int,
+                        uriSpec: UriSpec)(implicit timeout:Timeout): Future[Boolean] = {
+    service.makeDiscoverable(basePath, id, name, address, port, uriSpec)
   }
 
   def getInstances(basePath:String, name:String)(implicit timeout:Timeout) = service.getAllInstances(basePath, name)
