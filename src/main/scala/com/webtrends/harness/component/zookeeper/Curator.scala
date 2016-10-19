@@ -58,25 +58,23 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     internalClient.get
   }
 
-  private[zookeeper] def start(listener: Option[ConnectionStateListener] = None): Unit = {
+  private[zookeeper] def start(listener: Option[ConnectionStateListener] = None): Unit = internalClient.synchronized {
     if (internalClient.isEmpty) {
       createClient
     }
 
-    client.synchronized {
-      if (client.getState == CuratorFrameworkState.LATENT) {
-        log.info("Starting curator with quorum " + settings.quorum)
-        if (listener.isDefined) {
-          client.getConnectionStateListenable.addListener(listener.get)
-        }
-
-        client.start
-        client.getZookeeperClient.blockUntilConnectedOrTimedOut
+    if (client.getState == CuratorFrameworkState.LATENT) {
+      log.info("Starting curator with quorum " + settings.quorum)
+      if (listener.isDefined) {
+        client.getConnectionStateListenable.addListener(listener.get)
       }
+
+      client.start
+      client.getZookeeperClient.blockUntilConnectedOrTimedOut
     }
   }
 
-  private[zookeeper] def stop: Unit = {
+  private[zookeeper] def stop: Unit = internalClient.synchronized {
     log.debug("Stopping curator")
     internalClient match {
       case Some(c) if c.getState == CuratorFrameworkState.STARTED =>
@@ -88,22 +86,24 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def discovery(basePath:String, service: Option[ServiceInstance[WookieeServiceDetails]] = None): ServiceDiscovery[WookieeServiceDetails] = {
-    val key = DiscoveryKey(basePath, service match {
-      case Some(s) => s.getName
-      case _ => ""
-    })
-    if (discoveries.contains(key)) {
-      discoveries(key)
-    } else  {
-      val discovery = ServiceDiscoveryBuilder.builder(classOf[WookieeServiceDetails])
-        .client(client)
-        .serializer(new JsonInstanceSerializer[WookieeServiceDetails](classOf[WookieeServiceDetails]))
-        .basePath(basePath)
-        .build()
-      service.foreach(it => discovery.registerService(it))
-      discovery.start()
-      discoveries.put(key, discovery)
-      discovery
+    internalClient.synchronized {
+      val key = DiscoveryKey(basePath, service match {
+        case Some(s) => s.getName
+        case _ => ""
+      })
+      if (discoveries.contains(key)) {
+        discoveries(key)
+      } else {
+        val discovery = ServiceDiscoveryBuilder.builder(classOf[WookieeServiceDetails])
+          .client(client)
+          .serializer(new JsonInstanceSerializer[WookieeServiceDetails](classOf[WookieeServiceDetails]))
+          .basePath(basePath)
+          .build()
+        service.foreach(it => discovery.registerService(it))
+        discovery.start()
+        discoveries.put(key, discovery)
+        discovery
+      }
     }
   }
 
@@ -112,42 +112,48 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeServiceDetails] = {
-    val key = ProviderKey(basePath, name)
-    if (providers.contains(key)) {
-      providers(key)
-    } else {
-      val provider = discovery(basePath)
-        .serviceProviderBuilder()
-        .serviceName(name)
-        .providerStrategy(new WookieeWeightedStrategy())
-        .build()
-      provider.start()
-      providers.put(key, provider)
-      provider
+    internalClient.synchronized {
+      val key = ProviderKey(basePath, name)
+      if (providers.contains(key)) {
+        providers(key)
+      } else {
+        val provider = discovery(basePath)
+          .serviceProviderBuilder()
+          .serviceName(name)
+          .providerStrategy(new WookieeWeightedStrategy())
+          .build()
+        provider.start()
+        providers.put(key, provider)
+        provider
+      }
     }
   }
 
   def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    val filteredMap = name match {
-      case Some(n) => providers.filter(k => k._1.equals(n))
-      case None => providers
+    internalClient.synchronized {
+      val filteredMap = name match {
+        case Some(n) => providers.filter(k => k._1.equals(n))
+        case None => providers
+      }
+      filteredMap.map {
+        k => k._1 -> collectionAsScalaIterable(k._2.getAllInstances)
+      }.toMap
     }
-    filteredMap.map {
-      k => k._1 -> collectionAsScalaIterable(k._2.getAllInstances)
-    }.toMap
   }
 
   def registerService(basePath:String, instance:ServiceInstance[WookieeServiceDetails]): Unit = {
-    // create a provider for the service if one has not already been created for it
-    val key = ProviderKey(basePath, instance.getName)
-    if (!providers.contains(key)) {
-      val provider = discovery(basePath, Some(instance))
-        .serviceProviderBuilder()
-        .providerStrategy(new WookieeWeightedStrategy())
-        .serviceName(instance.getName)
-        .build()
-      provider.start()
-      providers.put(key, provider)
+    internalClient.synchronized {
+      // create a provider for the service if one has not already been created for it
+      val key = ProviderKey(basePath, instance.getName)
+      if (!providers.contains(key)) {
+        val provider = discovery(basePath, Some(instance))
+          .serviceProviderBuilder()
+          .providerStrategy(new WookieeWeightedStrategy())
+          .serviceName(instance.getName)
+          .build()
+        provider.start()
+        providers.put(key, provider)
+      }
     }
   }
 }
