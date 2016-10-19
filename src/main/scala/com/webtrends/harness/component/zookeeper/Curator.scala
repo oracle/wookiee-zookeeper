@@ -58,7 +58,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     internalClient.get
   }
 
-  private[zookeeper] def start(listener: Option[ConnectionStateListener] = None): Unit = client.synchronized {
+  private[zookeeper] def start(listener: Option[ConnectionStateListener] = None): Unit = internalClient.synchronized {
     if (internalClient.isEmpty) {
       createClient
     }
@@ -74,7 +74,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
     }
   }
 
-  private[zookeeper] def stop(): Unit = client.synchronized {
+  private[zookeeper] def stop(): Unit = internalClient.synchronized {
     log.debug("Stopping curator")
     internalClient match {
       case Some(c) if c.getState == CuratorFrameworkState.STARTED =>
@@ -86,7 +86,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def discovery(basePath:String, service: Option[ServiceInstance[WookieeServiceDetails]] = None): ServiceDiscovery[WookieeServiceDetails] = {
-    client.synchronized {
+    internalClient.synchronized {
       val key = DiscoveryKey(basePath, service match {
         case Some(s) => s.getName
         case _ => ""
@@ -112,7 +112,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def createServiceProvider(basePath:String, name:String) : ServiceProvider[WookieeServiceDetails] = {
-    client.synchronized {
+    internalClient.synchronized {
       val key = ProviderKey(basePath, name)
       if (providers.contains(key)) {
         providers(key)
@@ -130,7 +130,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    client.synchronized {
+    internalClient.synchronized {
       val filteredMap = name match {
         case Some(n) => providers.filter(k => k._1.equals(n))
         case None => providers
@@ -142,7 +142,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   }
 
   def registerService(basePath:String, instance:ServiceInstance[WookieeServiceDetails]): Unit = {
-    client.synchronized {
+    internalClient.synchronized {
       // create a provider for the service if one has not already been created for it
       val key = ProviderKey(basePath, instance.getName)
       if (!providers.contains(key)) {
