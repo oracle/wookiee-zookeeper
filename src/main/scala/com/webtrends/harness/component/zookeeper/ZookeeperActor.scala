@@ -394,7 +394,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private def getAllInstances(basePath:String, name:String) = {
     try {
-      sender() ! curator.createServiceProvider(basePath, name).getAllInstances
+      sender() ! curator.createServiceProvider(basePath, name).getAllInstances.toList
     } catch {
       case e:Exception =>
         log.error(e, "An error occurred while trying to get all instances from the discoverable provider")
