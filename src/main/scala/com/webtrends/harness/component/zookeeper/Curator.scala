@@ -18,16 +18,18 @@
  */
 package com.webtrends.harness.component.zookeeper
 
+import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
+import com.webtrends.harness.logging.LoggingAdapter
 import org.apache.curator.framework.imps.CuratorFrameworkState
 import org.apache.curator.framework.state.ConnectionStateListener
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
-import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.logging.LoggingAdapter
 import org.apache.curator.x.discovery.details.JsonInstanceSerializer
-import org.apache.curator.x.discovery.{ServiceInstance, ServiceProvider, ServiceDiscoveryBuilder, ServiceDiscovery}
-import scala.collection.mutable
+import org.apache.curator.x.discovery.{ServiceDiscovery, ServiceDiscoveryBuilder, ServiceInstance, ServiceProvider}
+
 import scala.collection.JavaConversions._
+import scala.collection.mutable
+import scala.util.Try
 
 private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAdapter {
 
@@ -82,7 +84,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
         internalClient = None
       case _ =>
     }
-    discoveries.foreach(x => x._2.close())
+    discoveries.foreach(x => Try(x._2.close()))
   }
 
   def discovery(basePath:String, service: Option[ServiceInstance[WookieeServiceDetails]] = None): ServiceDiscovery[WookieeServiceDetails] = {
