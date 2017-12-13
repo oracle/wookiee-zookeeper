@@ -19,6 +19,7 @@
 package com.webtrends.harness.component.zookeeper
 
 import akka.actor.Actor
+import org.apache.zookeeper.CreateMode
 
 import scala.concurrent.Future
 
@@ -145,14 +146,24 @@ trait ZookeeperAdapter {
     zkService.nodeExists(path, Some(namespace))
 
   /**
+    * Create a node at the given path
+    * @param path the path to create the node at
+    * @param ephemeral is this node ephemeral
+    * @param data the data to set in the node
+    * @return the full path to the newly created node
+    */
+  def createNode(path: String, ephemeral: Boolean, data: Option[Array[Byte]])
+                (implicit timeout: akka.util.Timeout): Future[String] = zkService.createNode(path, ephemeral, data)
+
+  /**
    * Create a node at the given path
    * @param path the path to create the node at
-   * @param ephemeral is the node ephemeral
+   * @param createMode mode in which to create the node
    * @param data the data to set in the node
    * @return the full path to the newly created node
    */
-  def createNode(path: String, ephemeral: Boolean, data: Option[Array[Byte]])
-                (implicit timeout: akka.util.Timeout): Future[String] = zkService.createNode(path, ephemeral, data)
+  def createNode(path: String, createMode: CreateMode, data: Option[Array[Byte]])
+                (implicit timeout: akka.util.Timeout): Future[String] = zkService.createNodeWithMode(path, createMode, data)
 
   /**
    * Create a node at the given path
