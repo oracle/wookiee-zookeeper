@@ -124,7 +124,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   override def receive = initializing
 
   def initializing: Receive = baseProcessing orElse {
-    case msg => stash() // Stash everything else for now
+    case _ => stash() // Stash everything else for now
   }
 
   def baseProcessing: Receive = health orElse {
@@ -152,7 +152,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // Check if a node exists
     case GetNodeExists(path, optNamespace) => nodeExists(path, optNamespace)
     // Create a node
-    case CreateNode(path, ephemeral, data, optNamespace) => createNode(path, ephemeral, data, optNamespace)
+    case CreateNode(path, createMode, data, optNamespace) => createNode(path, createMode, data, optNamespace)
     // Delete a node
     case DeleteNode(path, optNamespace) => deleteNode(path, optNamespace)
     // query for service names
@@ -218,7 +218,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         val mode = if (ephemeral) CreateMode.EPHEMERAL else CreateMode.PERSISTENT
         getClientContext(namespace).create.creatingParentsIfNeeded.withMode(mode).forPath(path)
       } catch {
-        case ne: NodeExistsException => path
+        case _: NodeExistsException => path
         case e: Exception =>
           log.error(e, "An error occurred trying to create a node for the path {}", path)
           path
@@ -245,7 +245,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     try {
       sender() ! getClientContext(namespace).getData.forPath(path)
     } catch {
-      case e: NoNodeException =>
+      case _: NoNodeException =>
         try {
           val mode = if (ephemeral) CreateMode.EPHEMERAL else CreateMode.PERSISTENT
           getClientContext(namespace).create.creatingParentsIfNeeded.withMode(mode).forPath(path, data)
@@ -267,19 +267,18 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     try {
       sender() ! (getClientContext(namespace).checkExists.forPath(path) != null)
     } catch {
-      case ne: NoNodeException => sender().tell(false, self)
+      case _: NoNodeException => sender().tell(false, self)
       case e: Exception =>
         log.error(e, "An error occurred trying to create a node for the path {}", path)
         sender() ! Status.Failure(e)
     }
   }
 
-  private def createNode(path: String, ephemeral: Boolean, data: Option[Array[Byte]], namespace: Option[String]) = {
+  private def createNode(path: String, mode: CreateMode, data: Option[Array[Byte]], namespace: Option[String]) = {
     try {
-      val mode = if (ephemeral) CreateMode.EPHEMERAL else CreateMode.PERSISTENT
       sender() ! getClientContext(namespace).create.creatingParentsIfNeeded.withMode(mode).forPath(path, data.getOrElse(Array.empty[Byte]))
     } catch {
-      case ne: NodeExistsException => sender() ! path
+      case _: NodeExistsException => sender() ! path
       case e: Exception =>
         log.error(e, "An error occurred trying to create a node for the path {}", path)
         sender() ! Status.Failure(e)
@@ -291,7 +290,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       getClientContext(namespace).delete.forPath(path)
       sender() ! path
     } catch {
-      case ne: NoNodeException => sender() ! path // Swallow
+      case _: NoNodeException => sender() ! path // Swallow
       case e: Exception =>
         log.error(e, "An error occurred trying to create a node for the path {}", path)
         sender() ! Status.Failure(e)
@@ -349,7 +348,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     val storedWeight = weightRegistrars.get(key).flatMap(w => w.stored)
     val weightState = WeightState(weight, storedWeight)
     weightRegistrars += key -> weightState
-    if (forceSet == true) { setWeight(key, weightState) }
+    if (forceSet) { setWeight(key, weightState) }
     sender() ! true
   }
 
@@ -546,11 +545,11 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
     val components = curator.getServiceProviderDetails() map {
       k =>
-        new HealthComponent(k._1.toString, ComponentState.NORMAL, k._2.toString)
+        HealthComponent(k._1.toString, ComponentState.NORMAL, k._2.toString)
     }
 
     Future {
-      new HealthComponent("zookeeper", zookeeperState, details = msg, extra = None, components.toList)
+      HealthComponent("zookeeper", zookeeperState, details = msg, extra = None, components.toList)
     }
   }
 
@@ -584,9 +583,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when the connected state changes to Zookeeper
-    *
-    * @param cur
-   * @param connectedState
    */
   def stateChanged(cur: CuratorFramework, connectedState: ConnectionState): Unit = {
     self ! StateChanged(connectedState)
@@ -594,9 +590,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * Curator handler for when a child node changes for a path that we are watching
-    *
-    * @param curator
-   * @param event
    */
   def childEvent(curator: CuratorFramework, event: PathChildrenCacheEvent): Unit = {
     // Ignore any initialization events
