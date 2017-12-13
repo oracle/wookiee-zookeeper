@@ -187,7 +187,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     try {
       val nodes = for {
         child <- getClientContext(namespace).getChildren.forPath(path)
-        data = if (includeData) Some(getClientContext(namespace).getData.forPath(s"${path}/${child}")) else None
+        data = if (includeData) Some(getClientContext(namespace).getData.forPath(s"$path/$child")) else None
       } yield (child, data)
       sender() ! nodes
     }
@@ -204,7 +204,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
     catch {
       case nn: NoNodeException =>
-        log.error("No node found for path {}", path)
+        log.debug("No node found for path {}", path)
         sender() ! Status.Failure(nn)
       case e: Exception =>
         log.error(e, "An error occurred trying to fetch data from the path {}", path)
@@ -482,10 +482,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     reg.to match {
       case ZookeeperStateEventRegistration(registrar) => stateRegistrars -= registrar
       case ZookeeperChildEventRegistration(registrar, path, optNamespace) =>
-        childRegistrars.get((path, optNamespace)).map {
+        childRegistrars.get((path, optNamespace)).foreach {
           entry =>
             if (entry.registrars.contains(registrar)) {
-              val newEntry = ((path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar)))
+              val newEntry = (path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar))
               if (newEntry._2.registrars.isEmpty) {
                 // No more registrars so we can shutdown the cache
                 entry.cache.getListenable.removeListener(this)
@@ -500,10 +500,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         }
 
       case ZookeeperLeaderEventRegistration(registrar, path, optNamespace) =>
-        leadershipRegistrars.get((path, optNamespace)).map {
+        leadershipRegistrars.get((path, optNamespace)).foreach {
           entry =>
             if (entry.registrars.contains(registrar)) {
-              val newEntry = ((path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar)))
+              val newEntry = (path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar))
               if (newEntry._2.registrars.isEmpty) {
                 // No more registrars so we can shutdown the leader selector
                 entry.leader.close
