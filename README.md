@@ -1,10 +1,31 @@
 # Wookiee - Component: ZooKeeper
 
-[![Build Status](https://travis-ci.org/Webtrends/wookiee-zookeeper.svg?branch=master)](https://travis-ci.org/Webtrends/wookiee-zookeeper) [![Coverage Status](https://coveralls.io/repos/Webtrends/wookiee-zookeeper/badge.svg?branch=master&service=github)](https://coveralls.io/github/Webtrends/wookiee-zookeeper?branch=master) [![Latest Release](https://img.shields.io/github/release/webtrends/wookiee-zookeeper.svg)](https://github.com/Webtrends/wookiee-zookeeper/releases) [![License](http://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
+[![Build Status](https://travis-ci.org/oracle/wookiee-zookeeper.svg?branch=master)](https://travis-ci.org/oracle/wookiee-zookeeper) [![Latest Release](https://img.shields.io/github/release/oracle/wookiee-zookeeper.svg)](https://github.com/oracle/wookiee-zookeeper/releases) [![License](http://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 
 [Main Wookiee Project](https://github.com/Webtrends/wookiee)
 
 For Configuration information see [ZooKeeper Config](docs/config.md)
+
+### Adding to Pom
+
+Add the jfrog repo to your project first:
+~~~~
+<repositories>
+    <repository>
+        <id>JFrog</id>
+        <url>http://oss.jfrog.org/oss-release-local</url>
+    </repository>
+</repositories>
+~~~~
+
+Add [latest version](https://github.com/oracle/wookiee-zookeeper/releases/latest) of wookiee:
+~~~~
+<dependency>
+    <groupId>com.webtrends</groupId>
+    <artifactId>wookiee-zookeeper</artifactId>
+    <version>${wookiee.version}</version>
+</dependency>
+~~~~
 
 ## Overview
 
