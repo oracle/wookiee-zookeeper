@@ -17,9 +17,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.artifact.version>2.11</scala.artifact.version>
         <scala.version>${scala.artifact.version}.11</scala.version>
-        <scoverage.plugin.version>1.1.1</scoverage.plugin.version>
-        <wookiee.core.version>1.3.0</wookiee.core.version>
-        <akka.version>2.5.1</akka.version>
+        <scoverage.plugin.version>1.3.0</scoverage.plugin.version>
+        <wookiee.core.version>1.3.9</wookiee.core.version>
+        <akka.version>2.5.3</akka.version>
         <curator.version>3.3.0</curator.version>
     </properties>
 
