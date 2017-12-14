@@ -55,12 +55,12 @@ class DiscoverableServiceSpec
     " make a service discoverable " in {
       val res = Await.result(service.makeDiscoverable(path, "d3f2248f-2652-4ce5-9caa-5ea2ed28b1a5", testServiceName, None,
         2552,
-        new UriSpec(s"akka.tcp://server@[Server]:2552/$testServiceName")), 1000 milliseconds)
+        new UriSpec(s"akka.tcp://server@[Server]:2552/$testServiceName")), 2000 milliseconds)
       res must be equalTo true
     }
 
     " get an instance of a discoverable service" in {
-      val res2 = Await.result(service.getInstance(path, testServiceName), 1000 milliseconds)
+      val res2 = Await.result(service.getInstance(path, testServiceName), 2000 milliseconds)
       res2.getName must be equalTo testServiceName
     }
   }
