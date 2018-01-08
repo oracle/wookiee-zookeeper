@@ -31,7 +31,8 @@ class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
    * Starts the component
    */
   override def start = {
-    startZookeeper(false)
+    log.info("Starting Zookeeper Component...")
+    startZookeeper()
     super.start
   }
 }

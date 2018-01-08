@@ -21,14 +21,15 @@ package com.webtrends.harness.component.zookeeper.config
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.Config
+import com.webtrends.harness.component.zookeeper.ZookeeperManager
 
 /**
  * @param dataCenter The data center to point to
  * @param pod The environment within the center
- * @param quorum The list of fqdn to the zookeeper quorom. Example: hzoo01.staging.dmz,hzoo02.staging.dmz,hzoo03.staging.dmz.
+ * @param quorum The list of fqdn to the zookeeper quorum. Example: hzoo01.staging.dmz,hzoo02.staging.dmz,hzoo03.staging.dmz.
  * @param sessionTimeout The zookeeper session timeout. Defaults to 30 seconds.
- * @param connectionTimeout The alloted time to try an connect to zookeeper. Defaults to 30 seconds.
- * @param retrySleep The alloted time to sleep before trying to connect to zookeeper. Defaults to 5 seconds.
+ * @param connectionTimeout The allotted time to try an connect to zookeeper. Defaults to 30 seconds.
+ * @param retrySleep The allotted time to sleep before trying to connect to zookeeper. Defaults to 5 seconds.
  * @param retryCount The number of times to retry to connect to zookeeper. Defaults to 150.
  */
 case class ZookeeperSettings(dataCenter: String,
@@ -49,13 +50,17 @@ case class ZookeeperSettings(dataCenter: String,
 object ZookeeperSettings {
 
   def apply(config: Config): ZookeeperSettings = {
-    ZookeeperSettings(config getString "datacenter",
-      config getString "pod",
-      config getString "quorum",
-      config.getDuration("session-timeout", TimeUnit.MILLISECONDS),
-      config.getDuration("connection-timeout", TimeUnit.MILLISECONDS),
-      config.getDuration("retry-sleep", TimeUnit.MILLISECONDS),
-      config getInt "retry-count",
-      config getString "base-path")
+    val conf = if (config.hasPath(ZookeeperManager.ComponentName))
+      config.getConfig(ZookeeperManager.ComponentName).withFallback(config)
+    else config
+
+    ZookeeperSettings(conf getString "datacenter",
+      conf getString "pod",
+      conf getString "quorum",
+      conf.getDuration("session-timeout", TimeUnit.MILLISECONDS),
+      conf.getDuration("connection-timeout", TimeUnit.MILLISECONDS),
+      conf.getDuration("retry-sleep", TimeUnit.MILLISECONDS),
+      conf getInt "retry-count",
+      conf getString "base-path")
   }
 }

@@ -120,3 +120,14 @@ class MyZookeeperEventActor with Actor with ActorLoggingAdapter with ZookeeperEv
 }
 ```
 
+## Testing Zookeeper Mock
+Requires org.apache.curator:curator-test
+
+To use ZK service from a test class:
+```scala
+val zkServer = new TestingServer()
+implicit val system = ActorSystem("test")
+lazy val zkService = MockZookeeper(zkServer.getConnectString)
+```
+Now you should be able to call ZK state changing methods in [ZookeeperService](src/main/scala/com/webtrends/harness/component/zookeeper/ZookeeperService.scala).
+
