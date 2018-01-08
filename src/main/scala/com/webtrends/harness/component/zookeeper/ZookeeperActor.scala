@@ -91,7 +91,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   @SerialVersionUID(1L) protected case class StateChanged(state: ConnectionState)
 
   override def preStart(): Unit = {
-    log.info("Starting Curator client")
+    log.info(s"Starting Curator client ${self.path}")
 
     Try({
       // Register as a handler
@@ -111,7 +111,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   }
 
   override def postStop(): Unit = {
-    // Un-register ourself
+    // Un-register our self
     unregisterNode(curator.client, settings)
     // Un-register as a handler
     ZookeeperService.unregisterMediator(self)
@@ -135,8 +135,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   /**
    * This is the main processing handler
-    *
-    * @return
    */
   def processing: Receive = baseProcessing orElse {
     // Set the weight we've been collecting
@@ -162,7 +160,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // query for service instances
     case QueryForInstances(basePath, name, id) => queryForInstances(basePath, name, id)
     // make service discoverable
-    case MakeDiscoverable(basePath, id, name, address, port, uriSpec) => makeDiscoverable(basePath, id, name, address, port, uriSpec)
+    case MakeDiscoverable(basePath, id, name, addr, p, uriSpec) => makeDiscoverable(basePath, id, name, addr, p, uriSpec)
     // get a single instance from the provider
     case GetInstance(basePath, name) => getInstance(basePath, name)
     // get all the instances from the provider
@@ -175,7 +173,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }.getOrElse(Nil)
     case RegisterNode =>
       // Re-register our self
-      registerNode(curator.client, settings, clusterEnabled)
+      registerNode(settings, clusterEnabled)
   }
 
   private def getClientContext(namespace: Option[String]): CuratorFramework = namespace match {
@@ -598,7 +596,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       event.getType == PathChildrenCacheEvent.Type.CHILD_UPDATED)) {
 
       val path = event.getData.getPath
-      log.debug(s"Zookeeper child event for path ${path}")
+      log.debug(s"Zookeeper child event for path $path")
 
       // Cycle through the paths to determine if any start with this change
       for (entry <- childRegistrars) {

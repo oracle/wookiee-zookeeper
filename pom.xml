@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  ~ Copyright (c) 2014. Webtrends (http://www.webtrends.com)
-  ~ @author cuthbertm on 10/22/14 12:01 PM
-  -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
@@ -14,12 +11,12 @@
         <release.type>SNAPSHOT</release.type>
         <build>${build.number}</build>
         <build-artifact-name>${project.artifactId}-${project.version}</build-artifact-name>
+        <curator.version>2.8.0</curator.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.artifact.version>2.11</scala.artifact.version>
-        <scala.version>${scala.artifact.version}.4</scala.version>
+        <scala.version>${scala.artifact.version}.8</scala.version>
         <scoverage.plugin.version>1.1.1</scoverage.plugin.version>
-        <wookiee.core.version>1.2.3</wookiee.core.version>
-        <akka.version>2.4.9</akka.version>
+        <wookiee.core.version>1.3.15</wookiee.core.version>
     </properties>
 
     <groupId>com.webtrends</groupId>
@@ -136,44 +133,27 @@
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-framework</artifactId>
-            <version>2.7.0</version>
+            <version>${curator.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-x-discovery</artifactId>
-            <version>2.7.0</version>
+            <version>${curator.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
-            <version>2.7.0</version>
+            <version>${curator.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-test</artifactId>
-            <version>2.7.0</version>
+            <version>${curator.version}</version>
         </dependency>
         <dependency>
             <groupId>net.liftweb</groupId>
             <artifactId>lift-json_${scala.artifact.version}</artifactId>
             <version>2.6-RC2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_2.11</artifactId>
-            <version>2.2.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest-maven-plugin</artifactId>
-            <version>1.0-M2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.typesafe.akka</groupId>
-            <artifactId>akka-testkit_${scala.artifact.version}</artifactId>
-            <version>${akka.version}</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 

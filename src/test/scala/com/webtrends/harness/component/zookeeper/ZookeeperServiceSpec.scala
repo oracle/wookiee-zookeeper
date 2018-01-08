@@ -20,61 +20,53 @@ package com.webtrends.harness.component.zookeeper
 
 import java.util.UUID
 
-import akka.actor.Actor.Receive
 import akka.actor._
 import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
-import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService.{UpdateWeight, QueryForInstances, MakeDiscoverable}
-import org.apache.curator.test.TestingServer
 import com.typesafe.config.{Config, ConfigFactory}
+import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService.{MakeDiscoverable, QueryForInstances, UpdateWeight}
+import com.webtrends.harness.component.zookeeper.mock.{GetSetWeightInterval, MockZookeeper}
+import org.apache.curator.test.TestingServer
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
-import org.joda.time.DateTime
 import org.specs2.mutable.SpecificationWithJUnit
-import org.specs2.time.NoTimeConversions
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.util.{Success, Failure}
 
 class ZookeeperServiceSpec
-  extends SpecificationWithJUnit with NoTimeConversions {
+  extends SpecificationWithJUnit {
 
   val zkServer = new TestingServer()
   implicit val system = ActorSystem("test", loadConfig)
-
-  lazy val zkActor = system.actorOf(TestZookeeperActor.props(ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))))
+  val service = MockZookeeper(zkServer.getConnectString)
+  val zkActor = ZookeeperService.getZkActor.get
 
   implicit val to = Timeout(2 seconds)
   val awaitResultTimeout = 5000 milliseconds
 
-  Await.result(zkActor ? Identify("xyz123"), 2 seconds)
-  lazy val service = ZookeeperService()
-  Thread.sleep(5000)
   sequential
 
   "The zookeeper service" should {
-
     "allow callers to create a node for a valid path" in {
-      val res = Await.result(service.createNode("/test", false, Some("data".getBytes)), awaitResultTimeout)
+      val res = Await.result(service.createNode("/test", ephemeral = false, Some("data".getBytes)), awaitResultTimeout)
       res shouldEqual "/test"
     }
 
     "allow callers to create a node for a valid namespace and path" in {
-      val res = Await.result(service.createNode("/namespacetest", false, Some("namespacedata".getBytes), Some("space")), awaitResultTimeout)
+      val res = Await.result(service.createNode("/namespacetest", ephemeral = false, Some("namespacedata".getBytes), Some("space")), awaitResultTimeout)
       res shouldEqual "/namespacetest"
     }
 
     "allow callers to delete a node for a valid path" in {
-      val res = Await.result(service.createNode("/deleteTest", false, Some("data".getBytes)), awaitResultTimeout)
+      val res = Await.result(service.createNode("/deleteTest", ephemeral = false, Some("data".getBytes)), awaitResultTimeout)
       res shouldEqual "/deleteTest"
       val res2 = Await.result(service.deleteNode("/deleteTest"), awaitResultTimeout)
       res2 shouldEqual "/deleteTest"
     }
 
     "allow callers to delete a node for a valid namespace and path " in {
-      val res = Await.result(service.createNode("/deleteTest", false, Some("data".getBytes), Some("space")), awaitResultTimeout)
+      val res = Await.result(service.createNode("/deleteTest", ephemeral = false, Some("data".getBytes), Some("space")), awaitResultTimeout)
       res shouldEqual "/deleteTest"
       val res2 = Await.result(service.deleteNode("/deleteTest", Some("space")), awaitResultTimeout)
       res2 shouldEqual "/deleteTest"
@@ -100,17 +92,17 @@ class ZookeeperServiceSpec
     }
 
     " allow callers to get children with no data for a valid path " in {
-      val res = Await.result(service.createNode("/test/child", false, None), awaitResultTimeout)
-      val res2 = Await.result(service.getChildren("/test", false), awaitResultTimeout)
-      res2(0)._1 shouldEqual "child"
-      res2(0)._2 shouldEqual None
+      Await.result(service.createNode("/test/child", ephemeral = false, None), awaitResultTimeout)
+      val res2 = Await.result(service.getChildren("/test"), awaitResultTimeout)
+      res2.head._1 shouldEqual "child"
+      res2.head._2 shouldEqual None
     }
 
     " allow callers to get children with data for a valid path " in {
-      val res = Await.result(service.setData("/test/child", "data".getBytes), awaitResultTimeout)
-      val res2 = Await.result(service.getChildren("/test", true), awaitResultTimeout)
-      res2(0)._1 shouldEqual "child"
-      res2(0)._2.get shouldEqual "data".getBytes
+      Await.result(service.setData("/test/child", "data".getBytes), awaitResultTimeout)
+      val res2 = Await.result(service.getChildren("/test", includeData = true), awaitResultTimeout)
+      res2.head._1 shouldEqual "child"
+      res2.head._2.get shouldEqual "data".getBytes
     }
 
     " return an error when getting children for an invalid path " in {
@@ -139,7 +131,7 @@ class ZookeeperServiceSpec
       val name = UUID.randomUUID().toString
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
-      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, false), awaitResultTimeout)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, forceSet = false), awaitResultTimeout)
 
       def result = {
         val r = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), awaitResultTimeout)
@@ -155,7 +147,7 @@ class ZookeeperServiceSpec
       val name = UUID.randomUUID().toString
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
-      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, true), awaitResultTimeout)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, forceSet = true), awaitResultTimeout)
 
       val res = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), awaitResultTimeout).asInstanceOf[ServiceInstance[WookieeServiceDetails]]
 
@@ -169,7 +161,7 @@ class ZookeeperServiceSpec
       val name = UUID.randomUUID().toString
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
-      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, false), awaitResultTimeout)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, forceSet = false), awaitResultTimeout)
 
       val res = Await.result(zkActor ? QueryForInstances(basePath, name, Some(id)), awaitResultTimeout).asInstanceOf[ServiceInstance[WookieeServiceDetails]]
 
@@ -183,7 +175,7 @@ class ZookeeperServiceSpec
       val name = UUID.randomUUID().toString
 
       Await.result(zkActor ? MakeDiscoverable(basePath, id, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
-      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, false), awaitResultTimeout)
+      Await.result(zkActor ? UpdateWeight(100, basePath, name, id, forceSet = false), awaitResultTimeout)
 
       Thread.sleep(3000)
 
@@ -199,7 +191,7 @@ class ZookeeperServiceSpec
 
   step {
     TestKit.shutdownActorSystem(system)
-    zkServer.close
+    zkServer.close()
   }
 
   def loadConfig: Config = {
