@@ -106,7 +106,7 @@ trait NodeRegistration extends ZookeeperAdapter {
     }
 
     log.info("Registering harness to path: " + path)
-    val json = compact(render(("address" -> add.toString) ~ ("cluster-enabled" -> clusterEnabled)))
+    val json = compactRender(("address" -> add.toString) ~ ("cluster-enabled" -> clusterEnabled))
 
     createNode(path, ephemeral = true, Some(json.getBytes(utf8))) onComplete {
       case Success(_) => log.debug("The node {} was created", path)

@@ -12,6 +12,7 @@
         <build>${build.number}</build>
         <build-artifact-name>${project.artifactId}-${project.version}</build-artifact-name>
         <curator.version>3.3.0</curator.version>
+        <lift.version>3.1.1</lift.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.artifact.version>2.11</scala.artifact.version>
         <scala.version>${scala.artifact.version}.8</scala.version>
@@ -163,7 +164,12 @@
         <dependency>
             <groupId>net.liftweb</groupId>
             <artifactId>lift-json_${scala.artifact.version}</artifactId>
-            <version>2.6-RC2</version>
+            <version>${lift.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.liftweb</groupId>
+            <artifactId>lift-json-ext_${scala.artifact.version}</artifactId>
+            <version>${lift.version}</version>
         </dependency>
     </dependencies>
 
