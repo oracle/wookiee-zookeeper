@@ -11,7 +11,7 @@
         <release.type>SNAPSHOT</release.type>
         <build>${build.number}</build>
         <build-artifact-name>${project.artifactId}-${project.version}</build-artifact-name>
-        <curator.version>2.8.0</curator.version>
+        <curator.version>3.3.0</curator.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.artifact.version>2.11</scala.artifact.version>
         <scala.version>${scala.artifact.version}.8</scala.version>
@@ -125,6 +125,16 @@
             <version>${wookiee.core.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>3.5.3-beta</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>22.0</version>
+        </dependency>
+        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>wookiee-test</artifactId>
             <version>${wookiee.core.version}</version>
@@ -190,7 +200,7 @@
             <plugin>
                 <groupId>com.google.code.sbt-compiler-maven-plugin</groupId>
                 <artifactId>sbt-compiler-maven-plugin</artifactId>
-                <version>1.0.0-beta5</version>
+                <version>1.0.0</version>
                 <executions>
                     <execution>
                         <id>default-sbt-compile</id>
