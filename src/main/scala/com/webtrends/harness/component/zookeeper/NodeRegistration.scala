@@ -35,12 +35,11 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object NodeRegistration {
-
   /**
-   * Get the node/cluster base path
-   * @param config the system config
-   * @return the base path
-   */
+    * Get the node/cluster base path
+    * @param config current ZK config
+    * @return the base path
+    */
   def getBasePath(config: Config): String = {
     val zookeeperSettings = ZookeeperSettings(config.getConfig("wookiee-zookeeper"))
     val basePath = if (config.hasPath("wookiee-cluster.base-path")) {
@@ -48,7 +47,16 @@ object NodeRegistration {
     } else {
       zookeeperSettings.basePath
     }
-    s"$basePath/${zookeeperSettings.dataCenter}_${zookeeperSettings.pod}/${zookeeperSettings.version}"
+    getBasePath(zookeeperSettings.copy(basePath = basePath))
+  }
+
+  /**
+   * Get the node/cluster base path
+   * @param zookeeperSettings current ZK settings
+   * @return the base path
+   */
+  def getBasePath(zookeeperSettings: ZookeeperSettings): String = {
+    s"${zookeeperSettings.basePath}/${zookeeperSettings.dataCenter}_${zookeeperSettings.pod}/${zookeeperSettings.version}"
   }
 }
 
@@ -65,45 +73,42 @@ trait NodeRegistration extends ZookeeperAdapter {
 
 
   private def getAddress: String = {
-
     val host = if (address.host.isEmpty || address.host.get.equalsIgnoreCase("localhost") || address.host.get.equals("127.0.0.1")) {
       InetAddress.getLocalHost.getCanonicalHostName
     } else {
       address.host.get
     }
 
-    s"${host}:${port}"
+    s"$host:$port"
   }
 
   def unregisterNode(curator: CuratorFramework, zookeeperSettings: ZookeeperSettings) = {
-
-    val path = s"${NodeRegistration.getBasePath(context.system.settings.config)}/nodes/${getAddress}"
+    val path = s"${NodeRegistration.getBasePath(zookeeperSettings)}/nodes/$getAddress"
     Try({
       // Call Curator directly because this method is usually called after the actor's queue has been disabled
       curator.delete.forPath(path)
     }).recover({
-      case e: NoNodeException =>
+      case _: NoNodeException =>
       // do nothing
       case e: Throwable =>
         log.warn(e, "The node {} could not be deleted", path)
     })
   }
 
-  def registerNode(curator: CuratorFramework, zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
-
+  def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
     val add = getAddress
-    val path = s"${NodeRegistration.getBasePath(context.system.settings.config)}/nodes/${add}"
+    val path = s"${NodeRegistration.getBasePath(zookeeperSettings)}/nodes/$add"
 
     // Delete the node first
     deleteNode(path) onComplete {
       case Success(_) => log.debug("The node {} was deleted", path)
-      case Failure(t) => log.error(t, "The node {} could not be deleted", path)
+      case Failure(t) => log.error(t, "The node {} could not be deleted on registration", path)
     }
 
     log.info("Registering harness to path: " + path)
-    val json = compact(render(("address" -> add.toString) ~ ("cluster-enabled" -> clusterEnabled)))
+    val json = compactRender(("address" -> add.toString) ~ ("cluster-enabled" -> clusterEnabled))
 
-    createNode(path, true, Some(json.getBytes(utf8))) onComplete {
+    createNode(path, ephemeral = true, Some(json.getBytes(utf8))) onComplete {
       case Success(_) => log.debug("The node {} was created", path)
       case Failure(t) => log.error(t, "Failed to create node registration for {}", path)
     }

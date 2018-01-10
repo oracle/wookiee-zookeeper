@@ -30,7 +30,7 @@ import org.apache.zookeeper.CreateMode
 
 import scala.concurrent.Future
 
-private[harness] class ZookeeperService()(implicit system: ActorSystem) {
+class ZookeeperService()(implicit system: ActorSystem) {
 
   import ZookeeperService._
 
@@ -181,6 +181,8 @@ private[harness] class ZookeeperService()(implicit system: ActorSystem) {
 object ZookeeperService {
 
   def apply()(implicit system: ActorSystem): ZookeeperService = new ZookeeperService
+  // Actor of type ZookeeperActor
+  def getZkActor: Option[ActorRef] = mediator
 
   private var mediator: Option[ActorRef] = None
 

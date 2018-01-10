@@ -34,7 +34,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class DiscoverableServiceSpec
-  extends SpecificationWithJUnit with NoTimeConversions {
+  extends SpecificationWithJUnit {
 
   val path = "/discovery/test"
   val testServiceName = "TestService"
@@ -67,7 +67,7 @@ class DiscoverableServiceSpec
 
   step {
     TestKit.shutdownActorSystem(system)
-    zkServer.close
+    zkServer.close()
   }
 
   def loadConfig: Config = {

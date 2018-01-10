@@ -3,13 +3,13 @@ package com.webtrends.harness.component.zookeeper
 import java.util
 import java.util.UUID
 
-import org.apache.curator.x.discovery.{UriSpec, ServiceInstance}
 import org.apache.curator.x.discovery.details.InstanceProvider
+import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.specs2.mutable.SpecificationWithJUnit
-import org.specs2.time.NoTimeConversions
-import collection.JavaConverters._
 
-class WookieeWeightedStrategySpec extends SpecificationWithJUnit with NoTimeConversions {
+import scala.collection.JavaConverters._
+
+class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
 
   class MockInstanceProvider(instances: Seq[ServiceInstance[WookieeServiceDetails]]) extends InstanceProvider[WookieeServiceDetails] {
     override def getInstances: util.List[ServiceInstance[WookieeServiceDetails]] = instances.toList.asJava

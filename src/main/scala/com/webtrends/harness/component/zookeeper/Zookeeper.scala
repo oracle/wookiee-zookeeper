@@ -18,29 +18,19 @@
  */
 package com.webtrends.harness.component.zookeeper
 
-import akka.actor.{Actor, Identify}
-import akka.pattern.ask
-import akka.util.Timeout
+import com.webtrends.harness.app.HActor
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import com.webtrends.harness.utils.ActorWaitHelper
 
 trait Zookeeper {
-  this: Actor=>
-
-  import context.system
-
+  this: HActor =>
   implicit val zookeeperSettings:ZookeeperSettings
+  implicit val system = context.system
 
   def startZookeeper(clusterEnabled:Boolean=false) = {
     // Load the zookeeper actor
-    val zk = context.actorOf(ZookeeperActor.props(zookeeperSettings, clusterEnabled), Zookeeper.ZookeeperName)
-
-    // We need to block here during startup so that we know that things
-    // are up and running for other services that depend on this
-    implicit val to = Timeout(20 seconds)
-    Await.result(zk ? Identify("StartZK"), to.duration)
+    ActorWaitHelper.awaitActor(ZookeeperActor.props(zookeeperSettings, clusterEnabled),
+      context.system, Some(Zookeeper.ZookeeperName))
   }
 }
 
