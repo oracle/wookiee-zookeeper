@@ -20,12 +20,13 @@ package com.webtrends.harness.component.zookeeper
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import akka.event.Logging
 import akka.pattern.ask
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent.ZookeeperEventRegistration
+import com.webtrends.harness.logging.LoggingAdapter
 import org.apache.zookeeper.CreateMode
 
 import scala.concurrent.Future
@@ -172,14 +173,21 @@ class ZookeeperService()(implicit system: ActorSystem) {
     else (mediator.get ? GetNodeExists(path, namespace)).mapTo[Boolean]
   }
 
+  /**
+    * Attempts to poison its mediator
+    */
+  def stop(): Unit = {
+    mediator.foreach(_ ! PoisonPill)
+    mediator = None
+  }
+
   private def logEmpty[T](fut: Future[T]): Future[T] = {
     log.warning("Zookeeper mediator set to None, not doing operation.")
     fut
   }
 }
 
-object ZookeeperService {
-
+object ZookeeperService extends LoggingAdapter {
   def apply()(implicit system: ActorSystem): ZookeeperService = new ZookeeperService
   // Actor of type ZookeeperActor
   def getZkActor: Option[ActorRef] = mediator
@@ -187,10 +195,12 @@ object ZookeeperService {
   private var mediator: Option[ActorRef] = None
 
   private[harness] def registerMediator(actor: ActorRef) = {
+    log.info(s"Registering mediator: [${actor.path.toString}]")
     mediator = Some(actor)
   }
 
   private[harness] def unregisterMediator(actor: ActorRef) = {
+    log.info(s"Unregistering mediator: [${actor.path.toString}]")
     mediator = None
   }
 
