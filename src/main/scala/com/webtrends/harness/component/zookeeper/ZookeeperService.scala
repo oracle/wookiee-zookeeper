@@ -35,7 +35,7 @@ class ZookeeperService()(implicit system: ActorSystem) {
 
   import ZookeeperService._
 
-  private[zookeeper] val defaultTimeout = Timeout(system.settings.config.getDuration("message-processor.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  private[zookeeper] val defaultTimeout = Timeout(system.settings.config.getDuration(s"${ZookeeperManager.ComponentName}.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   private val log = Logging(system, this.getClass)
 
   /**
