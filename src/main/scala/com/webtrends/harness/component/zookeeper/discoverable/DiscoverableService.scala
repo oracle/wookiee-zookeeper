@@ -25,7 +25,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.event.Logging
 import akka.pattern.ask
 import akka.util.Timeout
-import com.webtrends.harness.component.zookeeper.WookieeServiceDetails
+import com.webtrends.harness.component.zookeeper.{WookieeServiceDetails, ZookeeperManager}
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 
 import scala.concurrent.Future
@@ -36,7 +36,8 @@ import scala.concurrent.Future
 private[harness] class DiscoverableService()(implicit system: ActorSystem) {
   import DiscoverableService._
 
-  private[zookeeper] val defaultTimeout = Timeout(system.settings.config.getDuration("message-processor.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
+  private[zookeeper] val defaultTimeout = Timeout(system.settings.config
+    .getDuration(s"${ZookeeperManager.ComponentName}.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   private val log = Logging(system, this.getClass)
 
   def queryForNames(basePath:String)(implicit timeout:Timeout = defaultTimeout) : Future[util.Collection[String]] = {
