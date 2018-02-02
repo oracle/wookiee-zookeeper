@@ -285,7 +285,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private def deleteNode(path: String, namespace: Option[String]) = {
     try {
-      getClientContext(namespace).delete.forPath(path)
+      getClientContext(namespace).delete.deletingChildrenIfNeeded().forPath(path)
       sender() ! path
     } catch {
       case _: NoNodeException => sender() ! path // Swallow
