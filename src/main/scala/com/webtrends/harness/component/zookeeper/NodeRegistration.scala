@@ -86,7 +86,7 @@ trait NodeRegistration extends ZookeeperAdapter {
     val path = s"${NodeRegistration.getBasePath(zookeeperSettings)}/nodes/$getAddress"
     Try({
       // Call Curator directly because this method is usually called after the actor's queue has been disabled
-      curator.delete.forPath(path)
+      curator.delete.deletingChildrenIfNeeded().forPath(path)
     }).recover({
       case _: NoNodeException =>
       // do nothing
