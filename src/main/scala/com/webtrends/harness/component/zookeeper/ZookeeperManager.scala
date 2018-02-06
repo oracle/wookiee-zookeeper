@@ -21,6 +21,7 @@ package com.webtrends.harness.component.zookeeper
 import com.webtrends.harness.utils.ConfigUtil
 import com.webtrends.harness.component.Component
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
+import com.webtrends.harness.component.zookeeper.discoverable.typed.DiscoverableTypedCommandExecution
 
 class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
   implicit val zookeeperSettings = ZookeeperSettings(ConfigUtil.prepareSubConfig(config, name))
@@ -34,6 +35,10 @@ class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
     log.info("Starting Zookeeper Component...")
     startZookeeper()
     super.start
+  }
+
+  override def systemReady(): Unit = {
+    DiscoverableTypedCommandExecution.init(context)
   }
 }
 
