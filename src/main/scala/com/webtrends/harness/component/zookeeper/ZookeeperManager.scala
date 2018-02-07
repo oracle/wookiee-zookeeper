@@ -18,13 +18,9 @@
  */
 package com.webtrends.harness.component.zookeeper
 
-import com.webtrends.harness.utils.ConfigUtil
 import com.webtrends.harness.component.Component
-import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 
 class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
-  implicit val zookeeperSettings = ZookeeperSettings(ConfigUtil.prepareSubConfig(config, name))
-
   override protected def defaultChildName: Option[String] = Some(Zookeeper.ZookeeperName)
 
   /**
@@ -34,6 +30,11 @@ class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
     log.info("Starting Zookeeper Component...")
     startZookeeper()
     super.start
+  }
+
+  override def stop = {
+    stopZookeeper()
+    super.stop
   }
 }
 
