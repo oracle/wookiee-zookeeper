@@ -42,7 +42,7 @@ class DiscoverableServiceSpec
   val zkServer = new TestingServer()
   implicit val system = ActorSystem("test", loadConfig)
 
-  lazy val zkActor = system.actorOf(ZookeeperActor.props(ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))))
+  lazy val zkActor = system.actorOf(ZookeeperActor.props(ZookeeperSettings(system.settings.config)))
   implicit val to = Timeout(2 seconds)
 
   Await.result(zkActor ? Identify("xyz123"), 2 seconds)

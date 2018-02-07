@@ -21,7 +21,9 @@ package com.webtrends.harness.component.zookeeper.config
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.Config
-import com.webtrends.harness.component.zookeeper.ZookeeperManager
+import com.webtrends.harness.component.zookeeper.{Zookeeper, ZookeeperManager}
+
+import scala.util.Try
 
 /**
  * @param dataCenter The data center to point to
@@ -54,9 +56,12 @@ object ZookeeperSettings {
       config.getConfig(ZookeeperManager.ComponentName).withFallback(config)
     else config
 
+    val quorum = if (Zookeeper.mockZkServer.isDefined) {
+      Try(conf getString "quorum") getOrElse Zookeeper.mockZkServer.get.getConnectString
+    } else conf getString "quorum"
     ZookeeperSettings(conf getString "datacenter",
       conf getString "pod",
-      conf getString "quorum",
+      quorum,
       conf.getDuration("session-timeout", TimeUnit.MILLISECONDS),
       conf.getDuration("connection-timeout", TimeUnit.MILLISECONDS),
       conf.getDuration("retry-sleep", TimeUnit.MILLISECONDS),
