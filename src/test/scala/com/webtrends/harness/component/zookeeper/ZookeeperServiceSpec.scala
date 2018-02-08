@@ -42,7 +42,7 @@ class ZookeeperServiceSpec
   val service = MockZookeeper(zkServer.getConnectString)
   val zkActor = ZookeeperService.getZkActor.get
 
-  implicit val to = Timeout(2 seconds)
+  implicit val to = Timeout(5 seconds)
   val awaitResultTimeout = 5000 milliseconds
 
   sequential

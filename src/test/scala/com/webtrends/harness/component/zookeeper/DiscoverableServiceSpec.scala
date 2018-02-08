@@ -43,9 +43,9 @@ class DiscoverableServiceSpec
   implicit val system = ActorSystem("test", loadConfig)
 
   lazy val zkActor = system.actorOf(ZookeeperActor.props(ZookeeperSettings(system.settings.config)))
-  implicit val to = Timeout(2 seconds)
+  implicit val to = Timeout(5 seconds)
 
-  Await.result(zkActor ? Identify("xyz123"), 2 seconds)
+  Await.result(zkActor ? Identify("xyz123"), 5 seconds)
   lazy val service = DiscoverableService()
   Thread.sleep(5000)
   sequential
