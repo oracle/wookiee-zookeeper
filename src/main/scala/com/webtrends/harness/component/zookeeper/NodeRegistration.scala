@@ -41,7 +41,7 @@ object NodeRegistration {
     * @return the base path
     */
   def getBasePath(config: Config): String = {
-    val zookeeperSettings = ZookeeperSettings(config.getConfig("wookiee-zookeeper"))
+    val zookeeperSettings = ZookeeperSettings(config)
     val basePath = if (config.hasPath("wookiee-cluster.base-path")) {
       config.getConfig("wookiee-cluster").getString("base-path")
     } else {

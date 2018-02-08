@@ -131,3 +131,14 @@ lazy val zkService = MockZookeeper(zkServer.getConnectString)
 ```
 Now you should be able to call ZK state changing methods in [ZookeeperService](src/main/scala/com/webtrends/harness/component/zookeeper/ZookeeperService.scala).
 
+### Running a test Zookeeper Server Locally
+If you'd like to run your service locally and not point to an existing ZK server,
+you can set wookiee-zookeeper to create a TestingServer for you on startup
+which will serve as a fresh, test zookeeper server on each run. 
+
+To enable this, don't set wookiee-zookeeper.quorum but instead set:
+```
+wookiee-zookeeper {
+  mock-enabled = true
+}
+```
