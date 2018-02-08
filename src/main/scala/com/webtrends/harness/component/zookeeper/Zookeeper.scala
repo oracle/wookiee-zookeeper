@@ -18,12 +18,17 @@
  */
 package com.webtrends.harness.component.zookeeper
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorRef, PoisonPill}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.app.HActor
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.component.zookeeper.mock.MockZookeeper
 import com.webtrends.harness.utils.ActorWaitHelper
+import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.imps.CuratorFrameworkState
+import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
 
 import scala.util.Try
@@ -32,16 +37,32 @@ trait Zookeeper {
   this: HActor =>
   import Zookeeper._
   implicit val system = context.system
-  protected val isMock = Try(system.settings.config
-    .getBoolean(ZookeeperManager.ComponentName + ".mock-enabled")).getOrElse(false)
+  protected val mockEnabled = isMock(config)
+  protected val mockPort = getMockPort(config)
 
   protected var zkActor: Option[ActorRef] = None
 
   def startZookeeper(clusterEnabled:Boolean=false) = {
     // Load the zookeeper actor
-    if (isMock) {
+    if (mockEnabled) {
       log.info("Zookeeper Mock Mode Enabled, Starting Local Test Server...")
-      mockZkServer = Some(new TestingServer())
+      mockPort match {
+        case Some(port) =>
+          val testCurator = CuratorFrameworkFactory.newClient(
+            s"127.0.0.1:$port", 5000, 5000, new RetryNTimes(3, 100))
+          try {
+            testCurator.start()
+            testCurator.blockUntilConnected(2, TimeUnit.SECONDS)
+            assert(testCurator.getZookeeperClient.isConnected)
+          } catch {
+            case _: Throwable =>
+              log.info("^^^ Ignore above error if using multiple mock servers")
+              mockZkServer = Some(new TestingServer(port))
+          } finally {
+            testCurator.close()
+          }
+        case None => mockZkServer = Some(new TestingServer())
+      }
       zkActor = Some(ActorWaitHelper.awaitActor(MockZookeeper.props(zookeeperSettings, clusterEnabled),
         context.system, Some(Zookeeper.ZookeeperName)))
     } else {
@@ -56,11 +77,15 @@ trait Zookeeper {
   }
 
   protected def zookeeperSettings: ZookeeperSettings = {
-    if (isMock) {
-      if (mockZkServer.isEmpty)
+    if (mockEnabled) {
+      if (mockPort.isEmpty && mockZkServer.isEmpty)
         throw new IllegalStateException("Call startZookeeper() to create mockZkServer")
+      val connect = mockPort match {
+        case Some(port) if mockZkServer.isEmpty => s"127.0.0.1:$port"
+        case _ => mockZkServer.get.getConnectString
+      }
       val conf = ConfigFactory.parseString(ZookeeperManager.ComponentName +
-        s""".quorum="${mockZkServer.get.getConnectString}"""")
+        s""".quorum="$connect"""")
         .withFallback(config)
       ZookeeperSettings(conf)
     } else {
@@ -72,4 +97,13 @@ trait Zookeeper {
 object Zookeeper {
   val ZookeeperName = "zookeeper"
   var mockZkServer: Option[TestingServer] = None
+
+  def isMock(config: Config): Boolean = {
+    Try(config.getBoolean(ZookeeperManager.ComponentName + ".mock-enabled")).getOrElse(false)
+  }
+
+  def getMockPort(config: Config): Option[Int] = {
+    if (isMock(config)) Try(config.getInt(ZookeeperManager.ComponentName + ".mock-port")).toOption
+    else None
+  }
 }

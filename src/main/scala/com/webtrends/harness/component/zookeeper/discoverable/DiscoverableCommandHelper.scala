@@ -27,7 +27,7 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
    * @return
    */
   def addDiscoverableCommandWithProps[T<:Command](name:String, props:Props, id:Option[String]=None) : Future[ActorRef] = {
-    implicit val timeout = Timeout(2 seconds)
+    implicit val timeout = Timeout(5 seconds)
     val idValue = id match {
       case Some(i) => i
       case None => UUID.randomUUID().toString
@@ -57,7 +57,7 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
    * @param actorClass the class for the actor
    */
   def addDiscoverableCommand[T<:Command](name:String, actorClass:Class[T], id:Option[String]=None) : Future[ActorRef] = {
-    implicit val timeout = Timeout(2 seconds)
+    implicit val timeout = Timeout(5 seconds)
     val idValue = id match {
       case Some(i) => i
       case None => UUID.randomUUID().toString

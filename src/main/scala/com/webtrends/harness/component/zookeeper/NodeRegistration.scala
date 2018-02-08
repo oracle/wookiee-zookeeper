@@ -73,10 +73,14 @@ trait NodeRegistration extends ZookeeperAdapter {
 
 
   private def getAddress: String = {
-    val host = if (address.host.isEmpty || address.host.get.equalsIgnoreCase("localhost") || address.host.get.equals("127.0.0.1")) {
+    val addrHost = address.host
+    val host = if (addrHost.isEmpty) {
+      InetAddress.getLocalHost.getCanonicalHostName
+    } else if (!Zookeeper.isMock(context.system.settings.config) &&
+      (addrHost.get.equalsIgnoreCase("localhost") || addrHost.get.equals("127.0.0.1"))) {
       InetAddress.getLocalHost.getCanonicalHostName
     } else {
-      address.host.get
+      addrHost.get
     }
 
     s"$host:$port"

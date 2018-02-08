@@ -50,15 +50,24 @@ case class ZookeeperSettings(dataCenter: String,
 }
 
 object ZookeeperSettings {
-
   def apply(config: Config): ZookeeperSettings = {
+    import Zookeeper._
+
     val conf = if (config.hasPath(ZookeeperManager.ComponentName))
       config.getConfig(ZookeeperManager.ComponentName).withFallback(config)
     else config
-
-    val quorum = if (Zookeeper.mockZkServer.isDefined) {
-      Try(conf getString "quorum") getOrElse Zookeeper.mockZkServer.get.getConnectString
+    // Set the quorum on the fly in any of our mock cases
+    val quorum = if (isMock(config)) {
+      if (mockZkServer.isDefined) {
+        Try(conf getString "quorum") getOrElse Zookeeper.mockZkServer.get.getConnectString
+      } else {
+        getMockPort(config) match {
+          case Some(port) => s"127.0.0.1:$port"
+          case None => throw new IllegalArgumentException("Zookeeper quorum MUST be set in the config")
+        }
+      }
     } else conf getString "quorum"
+
     ZookeeperSettings(conf getString "datacenter",
       conf getString "pod",
       quorum,

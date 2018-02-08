@@ -54,7 +54,6 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
       settings.connectionTimeout.intValue, new RetryNTimes(
         settings.retryCount,
         settings.retrySleep.intValue)))
-
     }
 
     internalClient.get

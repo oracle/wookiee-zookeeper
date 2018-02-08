@@ -17,13 +17,14 @@ class ZookeeperServiceMockSpec
       |wookiee-zookeeper {
       |  enabled = true
       |  mock-enabled = true
-      |  base-path="/test_path"
+      |  mock-port = 59595
+      |  base-path = "/test_path"
       |}
     """.stripMargin), None, None)
   implicit val system = TestHarness.system.get
   val service = ZookeeperService()
 
-  implicit val to = Timeout(2 seconds)
+  implicit val to = Timeout(5 seconds)
   val awaitResultTimeout = 5000 milliseconds
 
   sequential
