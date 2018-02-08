@@ -384,7 +384,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       sender() ! curator.createServiceProvider(basePath, name).getInstance()
     } catch {
       case e:Exception =>
-        log.error(e, "An error occurred while trying to get an instance from the discoverable provider")
+        log.error(s"An error occurred while trying to get an instance from the discoverable provider: ${e.getMessage()}")
         sender() ! Status.Failure(e)
     }
   }
