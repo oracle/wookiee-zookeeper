@@ -19,11 +19,7 @@
 package com.webtrends.harness.component.zookeeper
 
 import com.webtrends.harness.component.Component
-<<<<<<< HEAD
-import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.component.zookeeper.discoverable.typed.DiscoverableTypedCommandExecution
-=======
->>>>>>> 18b517672745c9ba09ac9257ec6e7504a8f902b0
 
 class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
   override protected def defaultChildName: Option[String] = Some(Zookeeper.ZookeeperName)
