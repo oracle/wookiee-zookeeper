@@ -3,7 +3,7 @@ package com.webtrends.harness.component.zookeeper.discoverable
 import akka.actor.Actor
 import akka.pattern.ask
 import akka.util.Timeout
-import com.webtrends.harness.command.{CommandException, _}
+import com.webtrends.harness.command.{BaseCommandResponse, CommandException, _}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -19,15 +19,15 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
    * Executes a discoverable command where ever it may be located
    */
   def executeDiscoverableCommand[T:Manifest](basePath:String, name:String, bean:Option[CommandBean]=None)
-                                   (implicit timeout:Timeout) : Future[CommandResponse[T]]= {
-    val p = Promise[CommandResponse[T]]
+                                   (implicit timeout:Timeout) : Future[BaseCommandResponse[T]]= {
+    val p = Promise[BaseCommandResponse[T]]
     initCommandManager onComplete {
       case Success(_) =>
         commandManager match {
           case Some(cm) =>
             getInstance(basePath, name) onComplete {
               case Success(in) =>
-                (cm ? ExecuteRemoteCommand[T](name, in.getAddress, in.getPort, bean, timeout))(timeout).mapTo[CommandResponse[T]] onComplete {
+                (cm ? ExecuteRemoteCommand[T](name, in.getAddress, in.getPort, bean, timeout))(timeout).mapTo[BaseCommandResponse[T]] onComplete {
                   case Success(s) => p success s
                   case Failure(f) => p failure CommandException("CommandManager", f)
                 }
@@ -44,8 +44,8 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
     * Executes a discoverable command on every server that is hosting it
     */
   def broadcastDiscoverableCommand[T:Manifest](basePath:String, name:String, bean:Option[CommandBean]=None)
-                                            (implicit timeout:Timeout) : Future[CommandResponse[T]]= {
-    val p = Promise[CommandResponse[T]]
+                                            (implicit timeout:Timeout) : Future[BaseCommandResponse[T]]= {
+    val p = Promise[BaseCommandResponse[T]]
     initCommandManager onComplete {
       case Success(_) =>
         commandManager match {
@@ -53,7 +53,7 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
             getInstances(basePath, name) onComplete {
               case Success(in) if in.nonEmpty =>
                 val futures = in.map(i => (cm ? ExecuteRemoteCommand[T](name,
-                  i.getAddress, i.getPort, bean, timeout))(timeout).mapTo[CommandResponse[T]])
+                  i.getAddress, i.getPort, bean, timeout))(timeout).mapTo[BaseCommandResponse[T]])
                 Future.sequence(futures) onComplete {
                   case Success(s) => p success CommandResponse[T](Some(s.flatMap(_.data).asInstanceOf[T]), s.head.responseType)
                   case Failure(f) => p failure CommandException("CommandManager", f)
