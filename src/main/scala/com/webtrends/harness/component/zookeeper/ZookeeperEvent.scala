@@ -19,6 +19,8 @@
 package com.webtrends.harness.component.zookeeper
 
 import akka.actor.{Actor, ActorRef}
+import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
+import com.webtrends.harness.component.zookeeper.ZookeeperService.getMediator
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent
 import org.apache.curator.framework.state.ConnectionState
 
@@ -90,19 +92,19 @@ trait ZookeeperEventAdapter {
   import ZookeeperEvent.ZookeeperEventRegistration
   import context.system
 
-  private lazy val zkEventService = ZookeeperService()
-
   /**
    * Register for Zookeeper events.
    * @param registrar the actor that is to receive the events
    * @param to the class to register for
    */
-  def register(registrar: ActorRef, to: ZookeeperEventRegistration): Unit = zkEventService.register(registrar, to)
+  def register(registrar: ActorRef, to: ZookeeperEventRegistration): Unit =
+    getMediator(system) ! RegisterZookeeperEvent(registrar, to)
 
   /**
    * Unregister for Zookeeper events.
    * @param registrar the actor that is to receive the events
    * @param to the class to register for
    */
-  def unregister(registrar: ActorRef, to: ZookeeperEventRegistration): Unit = zkEventService.unregister(registrar, to)
+  def unregister(registrar: ActorRef, to: ZookeeperEventRegistration): Unit =
+    getMediator(system) ! UnregisterZookeeperEvent(registrar, to)
 }

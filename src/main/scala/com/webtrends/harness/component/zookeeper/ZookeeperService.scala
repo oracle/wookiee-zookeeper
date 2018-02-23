@@ -18,190 +18,35 @@
  */
 package com.webtrends.harness.component.zookeeper
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
-import akka.event.Logging
-import akka.pattern.ask
-import akka.util.Timeout
-import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
-import com.webtrends.harness.component.zookeeper.ZookeeperEvent.ZookeeperEventRegistration
 import com.webtrends.harness.logging.LoggingAdapter
 import org.apache.zookeeper.CreateMode
 
-import scala.concurrent.Future
-
-class ZookeeperService()(implicit system: ActorSystem) {
-
-  import ZookeeperService._
-
-  private[zookeeper] val defaultTimeout = Timeout(system.settings.config.getDuration(s"${ZookeeperManager.ComponentName}.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
-  private val log = Logging(system, this.getClass)
-
-  /**
-   * Register for subscription events. This is not used for maintaining
-   * subscriptions, but can be used more for testing subscription events.
-   * @param registrar the actor that is to receive the events
-   * @param to the class to register for
-   */
-  def register(registrar: ActorRef, to: ZookeeperEventRegistration): Unit =
-    if (mediator.isEmpty) logEmpty[Int](Future.successful(0))
-    else mediator.get ! RegisterZookeeperEvent(registrar, to)
-
-  /**
-   * Unregister for subscription events. This is not used for maintaining
-   * subscriptions, but can be used more for testing subscription events.
-   * @param registrar the actor that is to receive the events
-   * @param to the class to register for
-   */
-  def unregister(registrar: ActorRef, to: ZookeeperEventRegistration): Unit =
-    if (mediator.isEmpty) logEmpty[Int](Future.successful(0))
-    else mediator.foreach( _ ! UnregisterZookeeperEvent(registrar, to))
-
-  /**
-   * Set data in Zookeeper for the given path
-   * @param path the path to set data in
-   * @param data the data to set
-   * @param create should the node be created if it does not exist
-   * @param ephemeral should the created node be ephemeral
-   * @param namespace an optional name space
-   * @return the length of data that was written
-   */
-  def setData(path: String, data: Array[Byte], create: Boolean = false, ephemeral: Boolean = false, namespace: Option[String] = None)
-             (implicit timeout: akka.util.Timeout = defaultTimeout): Future[Int] =
-    if (mediator.isEmpty) logEmpty[Int](Future.successful(0))
-    else (mediator.get ? SetPathData(path, data, create, ephemeral, namespace)).mapTo[Int]
-
-  /**
-   * Set data in Zookeeper for the given path async, does not return anything
-   * @param path the path to set data in
-   * @param data the data to set
-   * @param create should the node be created if it does not exist
-   * @param ephemeral should the created node be ephemeral
-   * @param namespace an optional name space
-   */
-  def setDataAsync(path: String, data: Array[Byte], create: Boolean = false, ephemeral: Boolean = false, namespace: Option[String] = None)
-                  (implicit timeout: akka.util.Timeout = defaultTimeout) =
-    if (mediator.isEmpty) logEmpty[Boolean](Future.successful(true))
-    else mediator.get ! SetPathData(path, data, create, ephemeral, namespace, async = true)
-
-  /**
-   * Get Zookeeper data for the given path
-   * @param path the path to get data from
-   * @param namespace an optional name space
-   * @return An instance of Array[Byte] or an empty array
-   */
-  def getData(path: String, namespace: Option[String] = None)(implicit timeout: akka.util.Timeout = defaultTimeout): Future[Array[Byte]] = {
-    if (mediator.isEmpty) logEmpty[Array[Byte]](Future.successful(Array()))
-    else (mediator.get ? GetPathData(path, namespace)).mapTo[Array[Byte]]
-  }
-
-  /**
-   * Get the data in Zookeeper for the given path or set it if the path does not exist
-   * @param path the path to set data in
-   * @param data the data to set
-   * @param ephemeral should the created node be ephemeral
-   * @param namespace an optional name space
-   * @return An instance of Array[Byte] or an empty array
-   */
-  def getOrSetData(path: String, data: Array[Byte], ephemeral: Boolean = false, namespace: Option[String] = None)
-                  (implicit timeout: akka.util.Timeout = defaultTimeout): Future[Array[Byte]] =
-    if (mediator.isEmpty) logEmpty[Array[Byte]](Future.successful(Array()))
-    else (mediator.get ? GetOrSetPathData(path, data, ephemeral, namespace)).mapTo[Array[Byte]]
-
-  /**
-   * Get the child nodes for the given path
-   * @param path the path to get the children of
-   * @param includeData should the children's data be returned. Defaults to false.
-   * @param namespace an optional name space
-   * @return A Seq[String] or Nil is an error occurs or if there no children
-   */
-  def getChildren(path: String, includeData: Boolean = false, namespace: Option[String] = None)
-                 (implicit timeout: akka.util.Timeout = defaultTimeout): Future[Seq[(String, Option[Array[Byte]])]] = {
-    if (mediator.isEmpty) logEmpty[Seq[(String, Option[Array[Byte]])]](Future.successful(Seq()))
-    else (mediator.get ? GetPathChildren(path, includeData, namespace)).mapTo[Seq[(String, Option[Array[Byte]])]]
-  }
-
-  /**
-    * Create a node at the given path
-    * @param path the path to create the node at
-    * @param createMode mode in which to create the node
-    * @param data the data to set in the node
-    * @param namespace an optional name space
-    * @return the full path to the newly created node or an empty string if an error occurred
-    */
-  def createNodeWithMode(path: String, createMode: CreateMode, data: Option[Array[Byte]], namespace: Option[String] = None)
-                (implicit timeout: akka.util.Timeout = defaultTimeout): Future[String] = {
-    if (mediator.isEmpty) logEmpty[String](Future.successful(""))
-    else (mediator.get ? CreateNode(path, createMode, data, namespace)).mapTo[String]
-  }
-
-  /**
-   * Create a node at the given path
-   * @param path the path to create the node at
-   * @param ephemeral is the node ephemeral or persistent?
-   * @param data the data to set in the node
-   * @param namespace an optional name space
-   * @return the full path to the newly created node or an empty string if an error occurred
-   */
-  def createNode(path: String, ephemeral: Boolean, data: Option[Array[Byte]], namespace: Option[String] = None)
-                (implicit timeout: akka.util.Timeout = defaultTimeout): Future[String] = {
-    createNodeWithMode(path, if (ephemeral) CreateMode.EPHEMERAL else CreateMode.PERSISTENT, data, namespace)
-  }
-
-  /**
-   * Delete a node at the given path
-   * @param path the path to delete the node at
-   * @param namespace an optional name space
-   * @return the full path to the newly created node or an empty string if an error occurred
-   */
-  def deleteNode(path: String, namespace: Option[String] = None)
-                (implicit timeout: akka.util.Timeout = defaultTimeout): Future[String] = {
-    if (mediator.isEmpty) logEmpty[String](Future.successful(""))
-    else (mediator.get ? DeleteNode(path, namespace)).mapTo[String]
-  }
-
-  /**
-   * Does the node exist
-   * @param path the path to check
-   * @param namespace an optional name space
-   * @return true or false
-   */
-  def nodeExists(path: String, namespace: Option[String] = None)
-                (implicit timeout: akka.util.Timeout = defaultTimeout): Future[Boolean] = {
-    if (mediator.isEmpty) logEmpty[Boolean](Future.successful(true))
-    else (mediator.get ? GetNodeExists(path, namespace)).mapTo[Boolean]
-  }
-
-  /**
-    * Attempts to poison its mediator
-    */
-  def stop(): Unit = {
-    mediator.foreach(_ ! PoisonPill)
-    mediator = None
-  }
-
-  private def logEmpty[T](fut: Future[T]): Future[T] = {
-    log.warning("Zookeeper mediator set to None, not doing operation.")
-    fut
-  }
-}
+import scala.collection.concurrent.TrieMap
 
 object ZookeeperService extends LoggingAdapter {
-  def apply()(implicit system: ActorSystem): ZookeeperService = new ZookeeperService
   // Actor of type ZookeeperActor
-  def getZkActor: Option[ActorRef] = mediator
+  def getZkActor(implicit system: ActorSystem): Option[ActorRef] = mediatorMap.get(system)
 
-  private var mediator: Option[ActorRef] = None
+  private val mediatorMap = TrieMap[ActorSystem, ActorRef]()
 
-  private[harness] def registerMediator(actor: ActorRef) = {
-    log.info(s"Registering mediator: [${actor.path.toString}]")
-    mediator = Some(actor)
+  private[harness] def getMediator(system: ActorSystem): ActorRef = {
+    mediatorMap.get(system) match {
+      case Some(zkActor) => zkActor
+      case None => throw new IllegalStateException(s"No ZK Actor Registered for System: [$system]")
+    }
   }
 
-  private[harness] def unregisterMediator(actor: ActorRef) = {
-    log.info(s"Unregistering mediator: [${actor.path.toString}]")
-    mediator = None
+  private[harness] def registerMediator(actor: ActorRef)(implicit system: ActorSystem) = {
+    log.info(s"Registering mediator: [${actor.path}], for actor system: [$system]")
+    mediatorMap.put(system, actor)
+  }
+
+  private[harness] def unregisterMediator(system: ActorSystem) = {
+    if (mediatorMap.contains(system)) {
+      log.info(s"Unregistering mediator for actor system: [$system]")
+      mediatorMap.remove(system) foreach(_ ! PoisonPill)
+    }
   }
 
   @SerialVersionUID(1L) private[harness] case class SetPathData(path: String, data: Array[Byte],

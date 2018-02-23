@@ -23,32 +23,41 @@ import akka.actor.{ActorSystem, PoisonPill, Props}
 import akka.util.Timeout
 import com.typesafe.config.Config
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.component.zookeeper.{ZookeeperActor, ZookeeperService}
+import com.webtrends.harness.component.zookeeper.{ZookeeperActor, ZookeeperAdapterNonActor, ZookeeperService}
 import com.webtrends.harness.utils.ActorWaitHelper
 
 import scala.concurrent.duration._
 
 /**
-  * Use this actor to spin up a local zookeeper for unit testing.
+  * Use this object to spin up a local zookeeper for unit testing.
   * Requires org.apache.curator:curator-test
-  * To use ZK service from a test class:
+  * To use ZK service from a test class execute this code before anything:
   * val zkServer = new TestingServer()
-  * implicit val system = ActorSystem("test")
+  * implicit val system = ActorSystem("SomeTest")
   * lazy val zkService = MockZookeeper(zkServer.getConnectString)
   *
   * Now you should be able to call ZK state changing methods in zkService (ZookeeperService.scala).
   * Note: The clusterEnabled flag exists to support wookiee-cluster
   */
 object MockZookeeper {
-  private[harness] def props(settings:ZookeeperSettings, clusterEnabled: Boolean = false)(implicit system: ActorSystem): Props =
-    Props(classOf[TestZookeeperActor], settings, clusterEnabled)
+  case class MockZookeeper(override val zkActorSystem: ActorSystem) extends ZookeeperAdapterNonActor
 
-  def apply(zkSettings: ZookeeperSettings, clusterEnabled: Boolean = false)(implicit system: ActorSystem): ZookeeperService = {
-    ActorWaitHelper.awaitActor(props(zkSettings, clusterEnabled), system)(Timeout(15 seconds))
-    ZookeeperService()
+  private[harness] def props(settings:ZookeeperSettings, clusterEnabled: Boolean = false)(implicit system: ActorSystem): Props =
+    Props(classOf[ZookeeperActor], settings, clusterEnabled)
+
+  // Only zkSettings is required
+  def apply(zkSettings: ZookeeperSettings, clusterEnabled: Boolean = false,
+            actorName: Option[String] = None)(implicit system: ActorSystem): ZookeeperAdapterNonActor = {
+    val zkActor = if (actorName.isDefined) {
+      system.actorOf(props(zkSettings, clusterEnabled), actorName.get)
+    } else system.actorOf(props(zkSettings, clusterEnabled))
+
+    ActorWaitHelper.awaitActorRef(zkActor, system)(Timeout(15 seconds))
+    MockZookeeper(system)
   }
 
-  def apply(config: Config)(implicit system: ActorSystem): ZookeeperService = {
+  def apply(config: Config)
+           (implicit system: ActorSystem): ZookeeperAdapterNonActor = {
     apply(if (system.settings.config.hasPath("wookiee-zookeeper")) {
       ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))
     } else {
@@ -56,32 +65,24 @@ object MockZookeeper {
     })
   }
 
-  def apply(zookeeperQuorum: String)(implicit system: ActorSystem): ZookeeperService = {
+  def apply(zookeeperQuorum: String)(implicit system: ActorSystem): ZookeeperAdapterNonActor = {
     apply(getTestConfig(zookeeperQuorum))
+  }
+
+  def getTestConfig(config: Config)(implicit system: ActorSystem): ZookeeperSettings = {
+    ZookeeperSettings(config)
   }
 
   def getTestConfig(zookeeperQuorum: String)(implicit system: ActorSystem): ZookeeperSettings = {
     if (!zookeeperQuorum.isEmpty) {
       ZookeeperSettings("test", "pod", zookeeperQuorum)
-    } else if (system.settings.config.hasPath("wookiee-zookeeper")) {
-      ZookeeperSettings(system.settings.config.getConfig("wookiee-zookeeper"))
     } else {
       ZookeeperSettings(system.settings.config)
     }
   }
 
-  def stop(): Unit = {
+  def stop(implicit system: ActorSystem): Unit = {
     ZookeeperService.getZkActor.foreach(_ ! PoisonPill)
   }
 }
 
-case class GetSetWeightInterval()
-
-class TestZookeeperActor(settings: ZookeeperSettings, clusterEnabled: Boolean = false)
-  extends ZookeeperActor(settings, clusterEnabled) {
-  override def processing: Receive = ( {
-    case GetSetWeightInterval => sender() ! setWeightInterval
-  }: Receive) orElse super.processing
-
-  log.info(s"Create the TestZookeeperActor and attaching to Zookeeper at ${settings.quorum}")
-}

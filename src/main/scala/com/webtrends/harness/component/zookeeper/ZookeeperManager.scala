@@ -24,13 +24,14 @@ import com.webtrends.harness.component.zookeeper.discoverable.typed.Discoverable
 class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
   override protected def defaultChildName: Option[String] = Some(Zookeeper.ZookeeperName)
 
-  /**
-   * Starts the component
-   */
-  override def start = {
-    log.info("Starting Zookeeper Component...")
-    startZookeeper()
-    super.start
+  override def preStart() = {
+    if (!isClusterEnabled()) {
+      log.info("Starting Zookeeper Component...")
+      startZookeeper()
+    } else {
+      log.info("Zookeeper Component Started, but letting wookiee-cluster start its actors...")
+    }
+    super.preStart()
   }
 
   override def systemReady(): Unit = {

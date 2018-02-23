@@ -25,8 +25,9 @@ import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
+import com.webtrends.harness.component.zookeeper.ZookeeperActor.GetSetWeightInterval
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService.{MakeDiscoverable, QueryForInstances, UpdateWeight}
-import com.webtrends.harness.component.zookeeper.mock.{GetSetWeightInterval, MockZookeeper}
+import com.webtrends.harness.component.zookeeper.mock.MockZookeeper
 import org.apache.curator.test.TestingServer
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.specs2.mutable.SpecificationWithJUnit
@@ -185,7 +186,7 @@ class ZookeeperServiceSpec
     }
 
     "use set weight interval defined in config" in {
-      Await.result(zkActor ? GetSetWeightInterval, 3 second).asInstanceOf[Long] mustEqual 2
+      Await.result(zkActor ? GetSetWeightInterval(), 3 second).asInstanceOf[Long] mustEqual 2
     }
   }
 

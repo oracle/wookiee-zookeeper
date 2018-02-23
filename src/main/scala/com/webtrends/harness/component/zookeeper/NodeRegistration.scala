@@ -19,20 +19,10 @@
 package com.webtrends.harness.component.zookeeper
 
 import java.net.InetAddress
-import java.nio.charset.Charset
 
-import akka.actor.Actor
-import akka.util.Timeout
-import org.apache.curator.framework.CuratorFramework
+import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.logging.ActorLoggingAdapter
-import net.liftweb.json.JsonDSL._
-import net.liftweb.json._
-import org.apache.zookeeper.KeeperException.NoNodeException
-
-import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
 
 object NodeRegistration {
   /**
@@ -58,25 +48,20 @@ object NodeRegistration {
   def getBasePath(zookeeperSettings: ZookeeperSettings): String = {
     s"${zookeeperSettings.basePath}/${zookeeperSettings.dataCenter}_${zookeeperSettings.pod}/${zookeeperSettings.version}"
   }
-}
 
-trait NodeRegistration extends ZookeeperAdapter {
-  this: Actor with ActorLoggingAdapter =>
-
-  implicit val timeout = Timeout(5 seconds)
-
-  import context.dispatcher
-
-  val utf8 = Charset.forName("UTF-8")
-  val address = SystemExtension(context.system).address
-  val port = if (address.port.isDefined) address.port.get else context.system.settings.config.getInt("akka.remote.netty.tcp.port")
-
-
-  private def getAddress: String = {
+  /**
+    * Return the address name this node will carry
+    * @return
+    */
+  def getAddress(implicit system: ActorSystem): String = {
+    val address = SystemExtension(system).address
+    val port = if (address.port.isDefined) address.port.get
+      else system.settings.config.getInt("akka.remote.netty.tcp.port")
     val addrHost = address.host
+
     val host = if (addrHost.isEmpty) {
       InetAddress.getLocalHost.getCanonicalHostName
-    } else if (!Zookeeper.isMock(context.system.settings.config) &&
+    } else if (!Zookeeper.isMock(system.settings.config) &&
       (addrHost.get.equalsIgnoreCase("localhost") || addrHost.get.equals("127.0.0.1"))) {
       InetAddress.getLocalHost.getCanonicalHostName
     } else {
@@ -84,37 +69,5 @@ trait NodeRegistration extends ZookeeperAdapter {
     }
 
     s"$host:$port"
-  }
-
-  def unregisterNode(curator: CuratorFramework, zookeeperSettings: ZookeeperSettings) = {
-    val path = s"${NodeRegistration.getBasePath(zookeeperSettings)}/nodes/$getAddress"
-    Try({
-      // Call Curator directly because this method is usually called after the actor's queue has been disabled
-      curator.delete.deletingChildrenIfNeeded().forPath(path)
-    }).recover({
-      case _: NoNodeException =>
-      // do nothing
-      case e: Throwable =>
-        log.warn(e, "The node {} could not be deleted", path)
-    })
-  }
-
-  def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
-    val add = getAddress
-    val path = s"${NodeRegistration.getBasePath(zookeeperSettings)}/nodes/$add"
-
-    // Delete the node first
-    deleteNode(path) onComplete {
-      case Success(_) => log.debug("The node {} was deleted", path)
-      case Failure(t) => log.error(t, "The node {} could not be deleted on registration", path)
-    }
-
-    log.info("Registering harness to path: " + path)
-    val json = compactRender(("address" -> add.toString) ~ ("cluster-enabled" -> clusterEnabled))
-
-    createNode(path, ephemeral = true, Some(json.getBytes(utf8))) onComplete {
-      case Success(_) => log.debug("The node {} was created", path)
-      case Failure(t) => log.error(t, "Failed to create node registration for {}", path)
-    }
   }
 }
