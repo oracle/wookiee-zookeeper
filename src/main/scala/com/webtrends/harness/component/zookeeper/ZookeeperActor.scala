@@ -19,12 +19,14 @@
 
 package com.webtrends.harness.component.zookeeper
 
+import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
-import com.webtrends.harness.component.zookeeper.ZookeeperActor.GetLeaderRegistrars
+import com.webtrends.harness.component.zookeeper.NodeRegistration._
+import com.webtrends.harness.component.zookeeper.ZookeeperActor.{GetLeaderRegistrars, GetSetWeightInterval}
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{RegisterZookeeperEvent, UnregisterZookeeperEvent}
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent._
 import com.webtrends.harness.component.zookeeper.ZookeeperService._
@@ -33,6 +35,8 @@ import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableServic
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
 import com.webtrends.harness.health.{ActorHealth, ComponentState, HealthComponent}
 import com.webtrends.harness.logging.ActorLoggingAdapter
+import net.liftweb.json.JsonDSL._
+import net.liftweb.json.compactRender
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
@@ -50,6 +54,7 @@ import scala.util.Try
 
 
 object ZookeeperActor {
+  @SerialVersionUID(1L) private[zookeeper] case class GetSetWeightInterval()
   @SerialVersionUID(1L) private[zookeeper] case class GetLeaderRegistrars(path: String, namespace: Option[String])
 
   def props(settings:ZookeeperSettings, clusterEnabled:Boolean=false)(implicit system: ActorSystem): Props =
@@ -61,10 +66,12 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     with ActorHealth
     with ConnectionStateListener
     with PathChildrenCacheListener
-    with Stash
-    with NodeRegistration {
+    with Stash {
 
+  implicit val actorSystem = context.system
   import context.dispatcher
+  val registrationPath = s"${getBasePath(settings)}/nodes/$getAddress"
+  val utf8 = Charset.forName("UTF-8")
 
 
   private case class RegisterNode()
@@ -95,7 +102,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
     Try({
       // Register as a handler
-      ZookeeperService.registerMediator(self)
+      ZookeeperService.registerMediator(self)(context.system)
       DiscoverableService.registerMediator(self)
       startCurator
 
@@ -112,9 +119,9 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   override def postStop(): Unit = {
     // Un-register our self
-    unregisterNode(curator.client, settings)
+    unregisterNode()
     // Un-register as a handler
-    ZookeeperService.unregisterMediator(self)
+    ZookeeperService.unregisterMediator(context.system)
     DiscoverableService.unregisterMediator(self)
     // We are stopped so shutdown curator
     stopCurator
@@ -168,6 +175,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // Registration messages
     case r: RegisterZookeeperEvent => registerForEvents(r)
     case ur: UnregisterZookeeperEvent => unregisterForEvents(ur)
+    case _: GetSetWeightInterval =>
+      sender() ! setWeightInterval
     case GetLeaderRegistrars(path, optNamespace) => sender() ! leadershipRegistrars.get((path, optNamespace)).map {
       _.registrars
     }.getOrElse(Nil)
@@ -316,6 +325,32 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       case e:Exception =>
         log.error(e, "An error occurred trying to query for instances")
         sender() ! Status.Failure(e)
+    }
+  }
+
+  private def unregisterNode() = {
+    deleteNode(registrationPath, None)
+  }
+
+  private def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
+    val path = registrationPath
+
+    // Delete the node first
+    Try {
+      getClientContext(None).delete.deletingChildrenIfNeeded().forPath(path)
+      log.info(s"Cleaning out self in zookeeper on path: [$path]")
+    } recover { case _ =>
+      log.info(s"Node [$path] could not be deleted on registration, probably was cleaned up on shutdown.")
+    }
+
+    val json = compactRender(("address" -> getAddress) ~ ("cluster-enabled" -> clusterEnabled))
+
+    Try {
+      getClientContext(None).create.creatingParentsIfNeeded
+        .withMode(CreateMode.EPHEMERAL).forPath(path, json.getBytes(utf8))
+      log.info(s"Registering self in zookeeper on path: [$path]")
+    } recover { case t =>
+      log.error(t, "Failed to create node registration for {}", path)
     }
   }
 
@@ -619,9 +654,9 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
 private class LeaderListener(path: String, ref: ActorRef, namespace: Option[String])(implicit ex: ExecutionContext) extends LeaderLatchListener {
 
-  def isLeader = publishEvent(true)
+  def isLeader() = publishEvent(true)
 
-  def notLeader = publishEvent(false)
+  def notLeader() = publishEvent(false)
 
   def publishEvent(leader: Boolean) = {
     // Notify the registered listeners

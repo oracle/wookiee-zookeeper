@@ -20,14 +20,12 @@ package com.webtrends.harness.component.zookeeper
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, PoisonPill}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.app.HActor
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.component.zookeeper.mock.MockZookeeper
 import com.webtrends.harness.utils.ActorWaitHelper
 import org.apache.curator.framework.CuratorFrameworkFactory
-import org.apache.curator.framework.imps.CuratorFrameworkState
 import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.test.TestingServer
 
@@ -37,16 +35,14 @@ trait Zookeeper {
   this: HActor =>
   import Zookeeper._
   implicit val system = context.system
-  protected val mockEnabled = isMock(config)
-  protected val mockPort = getMockPort(config)
 
-  protected var zkActor: Option[ActorRef] = None
-
-  def startZookeeper(clusterEnabled:Boolean=false) = {
+  // Generally clusterEnabled is only used by wookiee-cluster, also mocking support built
+  // into this method for when mock-enabled or mock-port are set in wookiee-zookeeper
+  def startZookeeper(clusterEnabled: Boolean = isClusterEnabled()) = {
     // Load the zookeeper actor
-    if (mockEnabled) {
+    if (isMock(config)) {
       log.info("Zookeeper Mock Mode Enabled, Starting Local Test Server...")
-      mockPort match {
+      getMockPort(config) match {
         case Some(port) =>
           val testCurator = CuratorFrameworkFactory.newClient(
             s"127.0.0.1:$port", 5000, 5000, new RetryNTimes(3, 100))
@@ -63,24 +59,26 @@ trait Zookeeper {
           }
         case None => mockZkServer = Some(new TestingServer())
       }
-      zkActor = Some(ActorWaitHelper.awaitActor(MockZookeeper.props(zookeeperSettings, clusterEnabled),
-        context.system, Some(Zookeeper.ZookeeperName)))
+
+      MockZookeeper(zookeeperSettings, clusterEnabled)
     } else {
-      zkActor = Some(ActorWaitHelper.awaitActor(ZookeeperActor.props(zookeeperSettings, clusterEnabled),
-        context.system, Some(Zookeeper.ZookeeperName)))
+      // Start up ZK Actor as per normal, not mocking
+      ActorWaitHelper.awaitActor(ZookeeperActor.props(zookeeperSettings, clusterEnabled),
+        context.system, Some(Zookeeper.ZookeeperName))
     }
   }
 
   def stopZookeeper() = {
-    zkActor foreach (_ ! PoisonPill)
-    mockZkServer foreach (_.close())
+    mockZkServer foreach {
+      _.close()
+    }
   }
 
   protected def zookeeperSettings: ZookeeperSettings = {
-    if (mockEnabled) {
-      if (mockPort.isEmpty && mockZkServer.isEmpty)
+    if (isMock(config)) {
+      if (getMockPort(config).isEmpty && mockZkServer.isEmpty)
         throw new IllegalStateException("Call startZookeeper() to create mockZkServer")
-      val connect = mockPort match {
+      val connect = getMockPort(config) match {
         case Some(port) if mockZkServer.isEmpty => s"127.0.0.1:$port"
         case _ => mockZkServer.get.getConnectString
       }
@@ -91,6 +89,10 @@ trait Zookeeper {
     } else {
       ZookeeperSettings(config)
     }
+  }
+
+  protected def isClusterEnabled(): Boolean = {
+    Try(config.getBoolean("wookiee-cluster.enabled")).getOrElse(false)
   }
 }
 
