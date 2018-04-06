@@ -330,6 +330,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private def unregisterNode() = {
     deleteNode(registrationPath, None)
+    log.info(s"Unregistered self at path: $registrationPath")
   }
 
   private def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
