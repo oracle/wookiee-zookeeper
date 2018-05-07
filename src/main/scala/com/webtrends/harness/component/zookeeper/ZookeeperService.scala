@@ -61,6 +61,8 @@ object ZookeeperService extends LoggingAdapter {
 
   @SerialVersionUID(1L) private[harness] case class CreateNode(path: String, createMode: CreateMode, data: Option[Array[Byte]], namespace: Option[String] = None)
 
+  @SerialVersionUID(1L) private[harness] case class CreateCounter(path: String)
+
   @SerialVersionUID(1L) private[harness] case class GetNodeExists(path: String, namespace: Option[String] = None)
 
   @SerialVersionUID(1L) private[harness] case class DeleteNode(path: String, namespace: Option[String] = None)

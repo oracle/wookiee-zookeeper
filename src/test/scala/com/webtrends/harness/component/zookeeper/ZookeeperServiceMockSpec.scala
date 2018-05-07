@@ -3,6 +3,7 @@ package com.webtrends.harness.component.zookeeper
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import com.webtrends.harness.component.zookeeper.ZookeeperService.CreateCounter
 import com.webtrends.harness.service.test.TestHarness
 import org.specs2.mutable.SpecificationWithJUnit
 
@@ -88,6 +89,17 @@ class ZookeeperServiceMockSpec
 
     " return an error when getting children for an invalid path " in {
       Await.result(getChildren("/testbad"), awaitResultTimeout) must throwA[Exception]
+    }
+
+    "allow callers to create atomic longs " in {
+      val res = Await.result(createCounter("/test/counter"), awaitResultTimeout)
+      val res2 = Await.result(createCounter("/test/counter"), awaitResultTimeout)
+
+      res.increment()
+      res2.increment()
+      res.increment()
+      res2.get().postValue() mustEqual 3
+      res.get().postValue() mustEqual 3
     }
   }
 

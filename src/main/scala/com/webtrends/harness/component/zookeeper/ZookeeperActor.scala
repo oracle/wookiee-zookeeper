@@ -39,10 +39,12 @@ import net.liftweb.json.JsonDSL._
 import net.liftweb.json.compactRender
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
+import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
 import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
 import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
 import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
+import org.apache.curator.retry.ExponentialBackoffRetry
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
@@ -172,6 +174,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     case GetInstance(basePath, name) => getInstance(basePath, name)
     // get all the instances from the provider
     case GetAllInstances(basePath, name) => getAllInstances(basePath, name)
+    // counter creation
+    case CreateCounter(basePath) =>
+      sender() ! new DistributedAtomicLong(curator.client, basePath,
+        new ExponentialBackoffRetry(1000, 10))
     // Registration messages
     case r: RegisterZookeeperEvent => registerForEvents(r)
     case ur: UnregisterZookeeperEvent => unregisterForEvents(ur)
@@ -330,6 +336,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   private def unregisterNode() = {
     deleteNode(registrationPath, None)
+    log.info(s"Unregistered self at path: $registrationPath")
   }
 
   private def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
