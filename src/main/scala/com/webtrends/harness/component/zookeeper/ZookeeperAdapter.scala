@@ -25,6 +25,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.ZookeeperService._
 import com.webtrends.harness.logging.LoggingAdapter
+import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
 import org.apache.zookeeper.CreateMode
 
 import scala.concurrent.Future
@@ -163,6 +164,15 @@ trait ZookeeperAdapterNonActor extends LoggingAdapter {
                  namespace: Option[String] = None)
                 (implicit timeout: akka.util.Timeout): Future[String] =
     (getMediator(zkActorSystem) ? CreateNode(path, createMode, data, namespace)).mapTo[String]
+
+  /**
+    * Create a counter that can be incremented and decremented
+    * @param path the path in ZK to store the counter
+    * @return distributed ZK long that can be incremented/decremented
+    */
+  def createCounter(path: String)(implicit timeout: akka.util.Timeout): Future[DistributedAtomicLong] = {
+    (getMediator(zkActorSystem) ? CreateCounter(path)).mapTo[DistributedAtomicLong]
+  }
 
   /**
     * Delete a node at the given path
