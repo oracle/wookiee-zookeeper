@@ -174,6 +174,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     case GetInstance(basePath, name) => getInstance(basePath, name)
     // get all the instances from the provider
     case GetAllInstances(basePath, name) => getAllInstances(basePath, name)
+    // get all the instances from the provider
+    case _: GetRegistrationPath => sender ! registrationPath
     // counter creation
     case CreateCounter(basePath) =>
       sender() ! new DistributedAtomicLong(curator.client, basePath,
@@ -342,23 +344,25 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
     val path = registrationPath
 
-    // Delete the node first
-    Try {
-      getClientContext(None).delete.deletingChildrenIfNeeded().forPath(path)
-      log.info(s"Cleaning out self in zookeeper on path: [$path]")
-    } recover { case _ =>
-      log.info(s"Node [$path] could not be deleted on registration, probably was cleaned up on shutdown.")
-    }
+    if (doRegisterSelf) {
+      // Delete the node first
+      Try {
+        getClientContext(None).delete.deletingChildrenIfNeeded().forPath(path)
+        log.info(s"Cleaning out self in zookeeper on path: [$path]")
+      } recover { case _ =>
+        log.info(s"Node [$path] could not be deleted on registration, probably was cleaned up on shutdown.")
+      }
 
-    val json = compactRender(("address" -> getAddress) ~ ("cluster-enabled" -> clusterEnabled))
+      val json = compactRender(("address" -> getAddress) ~ ("cluster-enabled" -> clusterEnabled))
 
-    Try {
-      getClientContext(None).create.creatingParentsIfNeeded
-        .withMode(CreateMode.EPHEMERAL).forPath(path, json.getBytes(utf8))
-      log.info(s"Registering self in zookeeper on path: [$path]")
-    } recover { case t =>
-      log.error(t, "Failed to create node registration for {}", path)
-    }
+      Try {
+        getClientContext(None).create.creatingParentsIfNeeded
+          .withMode(CreateMode.EPHEMERAL).forPath(path, json.getBytes(utf8))
+        log.info(s"Registering self in zookeeper on path: [$path]")
+      } recover { case t =>
+        log.error(t, "Failed to create node registration for {}", path)
+      }
+    } else log.info(s"register-self set to 'false', not registering on path [$registrationPath]")
   }
 
   protected def setAllWeights() = {
@@ -648,6 +652,14 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         }
       }
     }
+  }
+
+  private def doRegisterSelf(): Boolean = {
+    val sysConfig = context.system.settings.config
+    val conf = if (sysConfig.hasPath(ZookeeperManager.ComponentName))
+      sysConfig.getConfig(ZookeeperManager.ComponentName).withFallback(sysConfig)
+    else sysConfig
+    Try(conf.getBoolean("register-self")).getOrElse(true)
   }
 
   protected class DefaultCallback extends BackgroundCallback {

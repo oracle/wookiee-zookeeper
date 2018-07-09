@@ -59,6 +59,8 @@ object ZookeeperService extends LoggingAdapter {
 
   @SerialVersionUID(1L) private[harness] case class GetPathChildren(path: String, includeData: Boolean, namespace: Option[String] = None)
 
+  @SerialVersionUID(1L) private[harness] case class GetRegistrationPath()
+
   @SerialVersionUID(1L) private[harness] case class CreateNode(path: String, createMode: CreateMode, data: Option[Array[Byte]], namespace: Option[String] = None)
 
   @SerialVersionUID(1L) private[harness] case class CreateCounter(path: String)

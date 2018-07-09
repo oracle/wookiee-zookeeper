@@ -3,9 +3,11 @@ package com.webtrends.harness.component.zookeeper
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import com.webtrends.harness.component.zookeeper.ZookeeperService.CreateCounter
+import com.webtrends.harness.component.zookeeper.ZookeeperService.{CreateCounter, GetPathData, GetRegistrationPath, getMediator}
 import com.webtrends.harness.service.test.TestHarness
 import org.specs2.mutable.SpecificationWithJUnit
+import akka.pattern.ask
+import org.apache.zookeeper.KeeperException.NoNodeException
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -20,6 +22,7 @@ class ZookeeperServiceMockSpec
       |  mock-enabled = true
       |  mock-port = 59595
       |  base-path = "/test_path"
+      |  register-self = false
       |}
     """.stripMargin), None, None)
   override implicit val zkActorSystem = TestHarness.system.get
@@ -30,6 +33,18 @@ class ZookeeperServiceMockSpec
   sequential
 
   "The zookeeper service" should {
+    "don't register self when not set to" in {
+      val startPath = Await.result((getMediator(zkActorSystem) ? GetRegistrationPath()).mapTo[String], awaitResultTimeout)
+      try {
+        val res = Await.result(getData(startPath, None), awaitResultTimeout)
+        new String(res) shouldEqual "should not be set"
+      } catch {
+        case ex: NoNodeException =>
+          log.info(s"No node registered for [$startPath] as expected")
+          true shouldEqual true
+      }
+    }
+
     "allow callers to create a node for a valid path" in {
       val res = Await.result(createNode("/test", ephemeral = false, Some("data".getBytes)), awaitResultTimeout)
       res shouldEqual "/test"
