@@ -22,7 +22,7 @@ Add [latest version](https://github.com/oracle/wookiee-zookeeper/releases/latest
 ~~~~
 <dependency>
     <groupId>com.webtrends</groupId>
-    <artifactId>wookiee-zookeeper</artifactId>
+    <artifactId>wookiee-zookeeper_2.11</artifactId>
     <version>${wookiee.version}</version>
 </dependency>
 ~~~~
