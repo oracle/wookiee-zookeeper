@@ -20,7 +20,12 @@
     <artifactId>wookiee-zookeeper</artifactId>
     <version>1.3-SNAPSHOT</version>
     <packaging>pom</packaging>
+    <name>Parent</name>
     <description>Apache Zookeeper support for Wookiee, supports leader election and stand Zookeeper node operations.</description>
+
+    <modules>
+        <module>child-pom.xml</module>
+    </modules>
 
     <!-- List the core committers -->
     <developers>
