@@ -55,7 +55,7 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
                 val futures = in.map(i => (cm ? ExecuteRemoteCommand[T](name,
                   i.getAddress, i.getPort, bean, timeout))(timeout).mapTo[BaseCommandResponse[T]])
                 Future.sequence(futures) onComplete {
-                  case Success(s) => p success CommandResponse[T](Some(s.flatMap(_.data).asInstanceOf[T]), s.head.responseType)
+                  case Success(s) => p success CommandResponse[T](Some(s.flatMap(_.data).asInstanceOf[T]))    // TODO - Don't lost response type
                   case Failure(f) => p failure CommandException("CommandManager", f)
                 }
               case Failure(f) => p failure CommandException("CommandManager", f)
