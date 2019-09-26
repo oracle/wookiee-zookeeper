@@ -24,30 +24,11 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
    *
    * @param name name of the command you want to add
    * @param props the props for that command actor class
+   * @param id id
    * @return
    */
-  def addDiscoverableCommandWithProps[T<:Command](name:String, props:Props, id:Option[String]=None) : Future[ActorRef] = {
-    implicit val timeout = Timeout(5 seconds)
-    val idValue = id match {
-      case Some(i) => i
-      case None => UUID.randomUUID().toString
-    }
-    val p = Promise[ActorRef]
-    initCommandManager onComplete {
-      case Success(_) =>
-        commandManager match {
-          case Some(cm) =>
-            (cm ? AddCommandWithProps(name, props)).mapTo[ActorRef] onComplete {
-              case Success(r) =>
-                makeDiscoverable(basePath, idValue, name)
-                p success r
-              case Failure(f) => p failure f
-            }
-          case None => p failure CommandException("CommandManager", "CommandManager not found!")
-        }
-      case Failure(f) => p failure f
-    }
-    p.future
+  def addDiscoverableCommandWithProps[T<:Command](name:String, props:Props, id:Option[String]=None) : Future[Boolean] = {
+    addDiscoverable(name, props, id)
   }
 
   /**
@@ -55,28 +36,26 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
    *
    * @param name name of the command you want to add
    * @param actorClass the class for the actor
+   * @param id id
    */
-  def addDiscoverableCommand[T<:Command](name:String, actorClass:Class[T], id:Option[String]=None) : Future[ActorRef] = {
+  def addDiscoverableCommand[T<:Command](name:String, actorClass:Class[T], id:Option[String]=None) : Future[Boolean] = {
+    addDiscoverable(name, Props(actorClass), id)
+  }
+
+  private def addDiscoverable[T<:Command](name: String, props: Props, id: Option[String] = None): Future[Boolean] = {
     implicit val timeout = Timeout(5 seconds)
-    val idValue = id match {
-      case Some(i) => i
-      case None => UUID.randomUUID().toString
+    val idValue = id.getOrElse(UUID.randomUUID().toString)
+    val m = AddCommandWithProps(name, props)
+
+    val result = for {
+      _ <- initCommandManager
+      _ <- commandManager.map(_ ? m).getOrElse(Future.failed(new CommandException("CommandManager", "CommandManager not found!")))
+      r <- makeDiscoverable(basePath, idValue, name)
+    } yield {
+      r
     }
-    val p = Promise[ActorRef]
-    initCommandManager onComplete {
-      case Success(_) =>
-        commandManager match {
-          case Some(cm) =>
-            (cm ? AddCommand(name, actorClass)).mapTo[ActorRef] onComplete {
-              case Success(r) =>
-                makeDiscoverable(basePath, idValue, name)
-                p success r
-              case Failure(f) => p failure f
-            }
-          case None => p failure CommandException("CommandManager", "CommandManager not found!")
-        }
-      case Failure(f) => p failure f
-    }
-    p.future
+
+    result.onFailure { case t => log.error("Failed to add discoverable command", t) }
+    result
   }
 }
