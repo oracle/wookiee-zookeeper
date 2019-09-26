@@ -21,7 +21,7 @@
 
     <groupId>com.webtrends</groupId>
     <artifactId>wookiee-zookeeper_2.11</artifactId>
-    <version>1.4-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Component: Zookeeper</name>
     <description>Apache Zookeeper support for Wookiee, supports leader election and stand Zookeeper node operations.</description>
