@@ -19,13 +19,12 @@
 package com.webtrends.harness.component.zookeeper
 
 import com.webtrends.harness.component.Component
-import com.webtrends.harness.component.zookeeper.discoverable.typed.DiscoverableTypedCommandExecution
 
 class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
   override protected def defaultChildName: Option[String] = Some(Zookeeper.ZookeeperName)
 
-  override def preStart() = {
-    if (!isClusterEnabled()) {
+  override def preStart(): Unit = {
+    if (!isClusterEnabled) {
       log.info("Starting Zookeeper Component...")
       startZookeeper()
     } else {
@@ -34,13 +33,9 @@ class ZookeeperManager(name:String) extends Component(name) with Zookeeper {
     super.preStart()
   }
 
-  override def systemReady(): Unit = {
-    DiscoverableTypedCommandExecution.init(context)
-  }
-
-  override def stop = {
+  override def stop(): Unit = {
     stopZookeeper()
-    super.stop
+    super.stop()
   }
 }
 

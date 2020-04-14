@@ -18,9 +18,12 @@
  */
 package com.webtrends.harness.component.zookeeper.discoverable
 
+import java.util
+
 import akka.actor.Actor
 import akka.util.Timeout
-import org.apache.curator.x.discovery.UriSpec
+import com.webtrends.harness.component.zookeeper.WookieeServiceDetails
+import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 
 import scala.concurrent.Future
 
@@ -32,35 +35,40 @@ trait Discoverable {
 
   import this.context.system
   private lazy val service = DiscoverableService()
-  val port = context.system.settings.config.getInt("akka.remote.netty.tcp.port")
-  val address = context.system.settings.config.getString("akka.remote.netty.tcp.hostname")
+  val port: Int = context.system.settings.config.getInt("akka.remote.netty.tcp.port")
+  val address: String = context.system.settings.config.getString("akka.remote.netty.tcp.hostname")
 
-  def queryForNames(basePath:String)(implicit timeout:Timeout) = service.queryForNames(basePath)
+  def queryForNames(basePath:String)(implicit timeout:Timeout): Future[util.Collection[String]] = service.queryForNames(basePath)
 
-  def queryForInstances(basePath:String, name:String, id:Option[String]=None)
-                       (implicit timeout:Timeout) = service.queryForInstances(basePath, name, id)
+  def queryForInstances(basePath: String, id: String)
+                       (implicit timeout:Timeout): Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = service.queryForInstances(basePath, id)
 
-  def makeDiscoverable(basePath:String, id:String, name:String)(implicit timeout:Timeout): Future[Boolean] = {
+  def makeDiscoverable(basePath: String, id: String)(implicit timeout:Timeout): Future[Boolean] = {
     val add = address match {
       case "127.0.0.1" | "localhost" | "0.0.0.0" => (None, "[SERVER]")
       case a => (Some(a), a)
     }
-    makeDiscoverable(basePath, id, name, add._1, port, new UriSpec(s"akka.tcp://server@${add._2}:$port/$name"))
+    makeDiscoverable(basePath, id, add._1, port, new UriSpec(s"akka.tcp://server@${add._2}:$port/${context.system.name}"))
   }
 
   def makeDiscoverable(
-                        basePath:String,
-                        id:String,
-                        name:String,
+                        basePath: String,
+                        id: String,
                         address: Option[String],
                         port: Int,
                         uriSpec: UriSpec)(implicit timeout:Timeout): Future[Boolean] = {
-    service.makeDiscoverable(basePath, id, name, address, port, uriSpec)
+    service.makeDiscoverable(basePath, id, address, port, uriSpec)
   }
 
-  def getInstances(basePath:String, name:String)(implicit timeout:Timeout) = service.getAllInstances(basePath, name)
+  def getInstances(basePath:String, id:String)
+                  (implicit timeout:Timeout): Future[Iterable[ServiceInstance[WookieeServiceDetails]]] =
+    service.getAllInstances(basePath, id)
 
-  def getInstance(basePath:String, name:String)(implicit timeout:Timeout) = service.getInstance(basePath, name)
-  def updateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean = false)(implicit timeout:Timeout) =
-    service.updateWeight(weight, basePath, name, id, forceSet)
+  def getInstance(basePath:String, id:String)
+                 (implicit timeout:Timeout): Future[ServiceInstance[WookieeServiceDetails]] =
+    service.getInstance(basePath, id)
+
+  def updateWeight(weight: Int, basePath:String, id: String, forceSet: Boolean = false)
+                  (implicit timeout:Timeout): Future[Boolean] =
+    service.updateWeight(weight, basePath, id, forceSet)
 }

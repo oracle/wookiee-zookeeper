@@ -20,6 +20,7 @@ package com.webtrends.harness.component.zookeeper
 
 import java.util.concurrent.TimeUnit
 
+import akka.actor.ActorSystem
 import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.app.HActor
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
@@ -34,11 +35,11 @@ import scala.util.Try
 trait Zookeeper {
   this: HActor =>
   import Zookeeper._
-  implicit val system = context.system
+  implicit val system: ActorSystem = context.system
 
   // Generally clusterEnabled is only used by wookiee-cluster, also mocking support built
   // into this method for when mock-enabled or mock-port are set in wookiee-zookeeper
-  def startZookeeper(clusterEnabled: Boolean = isClusterEnabled()) = {
+  def startZookeeper(clusterEnabled: Boolean = isClusterEnabled): Unit = {
     // Load the zookeeper actor
     if (isMock(config)) {
       log.info("Zookeeper Mock Mode Enabled, Starting Local Test Server...")
@@ -68,7 +69,7 @@ trait Zookeeper {
     }
   }
 
-  def stopZookeeper() = {
+  def stopZookeeper(): Unit = {
     mockZkServer foreach {
       _.close()
     }
@@ -91,7 +92,7 @@ trait Zookeeper {
     }
   }
 
-  protected def isClusterEnabled(): Boolean = {
+  protected def isClusterEnabled: Boolean = {
     Try(config.getBoolean("wookiee-cluster.enabled")).getOrElse(false)
   }
 }

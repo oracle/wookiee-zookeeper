@@ -35,8 +35,8 @@ import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableServic
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
 import com.webtrends.harness.health.{ActorHealth, ComponentState, HealthComponent}
 import com.webtrends.harness.logging.ActorLoggingAdapter
-import net.liftweb.json.JsonDSL._
-import net.liftweb.json.compactRender
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
@@ -49,7 +49,7 @@ import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -70,18 +70,18 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     with PathChildrenCacheListener
     with Stash {
 
-  implicit val actorSystem = context.system
+  implicit val actorSystem: ActorSystem = context.system
   import context.dispatcher
   val registrationPath = s"${getBasePath(settings)}/nodes/$getAddress"
-  val utf8 = Charset.forName("UTF-8")
+  val utf8: Charset = Charset.forName("UTF-8")
 
 
   private case class RegisterNode()
-  private case class WeightKey(basePath: String, name: String, id: String)
+  private case class WeightKey(basePath: String, id: String)
   private case class WeightState(current: Int, stored: Option[Int])
   private case object SetWeight
 
-  protected val setWeightInterval = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
+  protected val setWeightInterval: Long = context.system.settings.config.getDuration("discoverability.set-weight-interval", SECONDS)
 
   private var currentState = ConnectionState.LOST
   private var stateRegistrars: Set[ActorRef] = Set.empty
@@ -89,7 +89,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private var leadershipRegistrars: Map[(String, Option[String]), LeaderEntry] = Map.empty
   private var weightRegistrars: Map[WeightKey, WeightState] = Map.empty
 
-  protected val curator = Curator(settings)
+  protected val curator: Curator = Curator(settings)
   protected val callback = new DefaultCallback
 
 
@@ -106,7 +106,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       // Register as a handler
       ZookeeperService.registerMediator(self)(context.system)
       DiscoverableService.registerMediator(self)
-      startCurator
+      startCurator()
 
       context.system.scheduler.schedule(
         setWeightInterval seconds,
@@ -126,11 +126,11 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     ZookeeperService.unregisterMediator(context.system)
     DiscoverableService.unregisterMediator(self)
     // We are stopped so shutdown curator
-    stopCurator
+    stopCurator()
     log.info("Curator client stopped")
   }
 
-  override def receive = initializing
+  override def receive: Receive = initializing
 
   def initializing: Receive = baseProcessing orElse {
     case _ => stash() // Stash everything else for now
@@ -149,40 +149,56 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // Set the weight we've been collecting
     case SetWeight => setAllWeights()
     // Set the data for the given path
-    case SetPathData(path, data, create, ephemeral, optNamespace, async) => setData(path, data, create, ephemeral, optNamespace, async)
+    case SetPathData(path, data, create, ephemeral, optNamespace, async) =>
+      setData(path, data, create, ephemeral, optNamespace, async)
     // Get data for the given path
-    case GetPathData(path, optNamespace) => getData(path, optNamespace)
+    case GetPathData(path, optNamespace) =>
+      getData(path, optNamespace)
     // Get data for the given path
-    case GetOrSetPathData(path, data, ephemeral, optNamespace) => getOrSetData(path, data, ephemeral, optNamespace)
+    case GetOrSetPathData(path, data, ephemeral, optNamespace) =>
+      getOrSetData(path, data, ephemeral, optNamespace)
     // Get children for the given path
-    case GetPathChildren(path, includeData, optNamespace) => getChildren(path, includeData, optNamespace)
+    case GetPathChildren(path, includeData, optNamespace) =>
+      getChildren(path, includeData, optNamespace)
     // Check if a node exists
-    case GetNodeExists(path, optNamespace) => nodeExists(path, optNamespace)
+    case GetNodeExists(path, optNamespace) =>
+      nodeExists(path, optNamespace)
     // Create a node
-    case CreateNode(path, createMode, data, optNamespace) => createNode(path, createMode, data, optNamespace)
+    case CreateNode(path, createMode, data, optNamespace) =>
+      createNode(path, createMode, data, optNamespace)
     // Delete a node
-    case DeleteNode(path, optNamespace) => deleteNode(path, optNamespace)
+    case DeleteNode(path, optNamespace) =>
+      deleteNode(path, optNamespace)
     // query for service names
-    case QueryForNames(basePath) => queryForNames(basePath)
+    case QueryForNames(basePath) =>
+      queryForNames(basePath)
     // Update weight
-    case UpdateWeight(weight, basePath, name, id, forceSet) => updateWeight(weight, basePath, name, id, forceSet)
+    case UpdateWeight(weight, basePath, id, forceSet) =>
+      updateWeight(weight, basePath, id, forceSet)
     // query for service instances
-    case QueryForInstances(basePath, name, id) => queryForInstances(basePath, name, id)
+    case QueryForInstances(basePath, id) =>
+      queryForInstances(basePath, id)
     // make service discoverable
-    case MakeDiscoverable(basePath, id, name, addr, p, uriSpec) => makeDiscoverable(basePath, id, name, addr, p, uriSpec)
+    case MakeDiscoverable(basePath, id, addr, p, uriSpec) =>
+      makeDiscoverable(basePath, id, addr, p, uriSpec)
     // get a single instance from the provider
-    case GetInstance(basePath, name) => getInstance(basePath, name)
+    case GetInstance(basePath, name) =>
+      getInstance(basePath, name)
     // get all the instances from the provider
-    case GetAllInstances(basePath, name) => getAllInstances(basePath, name)
+    case GetAllInstances(basePath, name) =>
+      getAllInstances(basePath, name)
     // get all the instances from the provider
-    case _: GetRegistrationPath => sender ! registrationPath
+    case _: GetRegistrationPath =>
+      sender ! registrationPath
     // counter creation
     case CreateCounter(basePath) =>
       sender() ! new DistributedAtomicLong(curator.client, basePath,
         new ExponentialBackoffRetry(1000, 10))
     // Registration messages
-    case r: RegisterZookeeperEvent => registerForEvents(r)
-    case ur: UnregisterZookeeperEvent => unregisterForEvents(ur)
+    case r: RegisterZookeeperEvent =>
+      registerForEvents(r)
+    case ur: UnregisterZookeeperEvent =>
+      unregisterForEvents(ur)
     case _: GetSetWeightInterval =>
       sender() ! setWeightInterval
     case GetLeaderRegistrars(path, optNamespace) => sender() ! leadershipRegistrars.get((path, optNamespace)).map {
@@ -198,26 +214,24 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     case None => curator.client
   }
 
-  private def getChildren(path: String, includeData: Boolean, namespace: Option[String]) = {
+  private def getChildren(path: String, includeData: Boolean, namespace: Option[String]): Unit = {
     try {
       val nodes = for {
-        child <- getClientContext(namespace).getChildren.forPath(path)
+        child <- getClientContext(namespace).getChildren.forPath(path).asScala
         data = if (includeData) Some(getClientContext(namespace).getData.forPath(s"$path/$child")) else None
       } yield (child, data)
       sender() ! nodes
-    }
-    catch {
+    } catch {
       case e: Exception =>
         log.error(e, "An error occurred trying to fetch children from the path {}", path)
         sender() ! Status.Failure(e)
     }
   }
 
-  private def getData(path: String, namespace: Option[String]) = {
+  private def getData(path: String, namespace: Option[String]): Unit = {
     try {
       sender() ! getClientContext(namespace).getData.forPath(path)
-    }
-    catch {
+    } catch {
       case nn: NoNodeException =>
         log.debug("No node found for path {}", path)
         sender() ! Status.Failure(nn)
@@ -256,7 +270,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def getOrSetData(path: String, data: Array[Byte], ephemeral: Boolean, namespace: Option[String]) = {
+  private def getOrSetData(path: String, data: Array[Byte], ephemeral: Boolean, namespace: Option[String]): Unit = {
     try {
       sender() ! getClientContext(namespace).getData.forPath(path)
     } catch {
@@ -278,7 +292,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def nodeExists(path: String, namespace: Option[String]) = {
+  private def nodeExists(path: String, namespace: Option[String]): Unit = {
     try {
       sender() ! (getClientContext(namespace).checkExists.forPath(path) != null)
     } catch {
@@ -289,7 +303,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def createNode(path: String, mode: CreateMode, data: Option[Array[Byte]], namespace: Option[String]) = {
+  private def createNode(path: String, mode: CreateMode, data: Option[Array[Byte]], namespace: Option[String]): Unit = {
     try {
       sender() ! getClientContext(namespace).create.creatingParentsIfNeeded.withMode(mode).forPath(path, data.getOrElse(Array.empty[Byte]))
     } catch {
@@ -300,7 +314,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def deleteNode(path: String, namespace: Option[String]) = {
+  private def deleteNode(path: String, namespace: Option[String]): Unit = {
     try {
       getClientContext(namespace).delete.deletingChildrenIfNeeded().forPath(path)
       sender() ! path
@@ -312,9 +326,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def queryForNames(basePath:String) = {
+  private def queryForNames(basePath:String): Unit = {
     try {
-      sender() ! curator.discovery(basePath).queryForNames()
+      // List[String]
+      sender() ! curator.discovery(basePath).queryForNames().asScala.toList
     } catch {
       case e: Exception =>
         log.error(e, "An error occurred trying to query for names")
@@ -322,12 +337,10 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def queryForInstances(basePath:String, name:String, id:Option[String]=None) = {
+  private def queryForInstances(basePath: String, id: String): Unit = {
     try {
-      val query = id match {
-        case Some(i) => curator.discovery(basePath).queryForInstance(name, i)
-        case None => curator.discovery(basePath).queryForInstances(name)
-      }
+      // List[ServiceInstance[WookieeServiceDetails]]
+      val query = curator.discovery(basePath).queryForInstances(id).asScala.toList
       sender() ! query
     } catch {
       case e:Exception =>
@@ -336,7 +349,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def unregisterNode() = {
+  private def unregisterNode(): Unit = {
     deleteNode(registrationPath, None)
     log.info(s"Unregistered self at path: $registrationPath")
   }
@@ -344,7 +357,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private def registerNode(zookeeperSettings: ZookeeperSettings, clusterEnabled: Boolean) {
     val path = registrationPath
 
-    if (doRegisterSelf) {
+    if (doRegisterSelf()) {
       // Delete the node first
       Try {
         getClientContext(None).delete.deletingChildrenIfNeeded().forPath(path)
@@ -353,7 +366,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         log.info(s"Node [$path] could not be deleted on registration, probably was cleaned up on shutdown.")
       }
 
-      val json = compactRender(("address" -> getAddress) ~ ("cluster-enabled" -> clusterEnabled))
+      val json = compact(render(("address" -> getAddress) ~ ("cluster-enabled" -> clusterEnabled)))
 
       Try {
         getClientContext(None).create.creatingParentsIfNeeded
@@ -365,30 +378,30 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     } else log.info(s"register-self set to 'false', not registering on path [$registrationPath]")
   }
 
-  protected def setAllWeights() = {
+  protected def setAllWeights(): Unit = {
     weightRegistrars.filter { case (_, ws) => ws.stored.isEmpty || ws.current != ws.stored.get }.foreach { case (key, weight) =>
       setWeight(key, weight)
     }
   }
 
-  protected def setWeight(key: WeightKey, weight: WeightState) = {
+  protected def setWeight(key: WeightKey, weight: WeightState): Unit = {
     try {
-      curator.discovery(key.basePath, key.name) match {
+      curator.discovery(key.basePath, key.id) match {
         case None =>
         case Some(d) =>
-          val instance = d.queryForInstance(key.name, key.id)
-          instance.getPayload.setWeight(weight.current)
+          val instance = d.queryForInstances(key.id).asScala.headOption
+          instance.foreach(_.getPayload.setWeight(weight.current))
           weightRegistrars += key -> WeightState(weight.current, Some(weight.current))
-          d.updateService(instance)
+          instance.foreach(d.updateService)
       }
     } catch {
       case e: Exception =>
-        log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.name}/${key.id}")
+        log.error(e, s"An error occurred while trying to update weight for ${key.basePath}/${key.id}")
     }
   }
 
-  private def updateWeight(weight: Int, basePath: String, name: String, id: String, forceSet: Boolean) = {
-    val key = WeightKey(basePath, name, id)
+  private def updateWeight(weight: Int, basePath: String, id: String, forceSet: Boolean): Unit = {
+    val key = WeightKey(basePath, id)
     val storedWeight = weightRegistrars.get(key).flatMap(w => w.stored)
     val weightState = WeightState(weight, storedWeight)
     weightRegistrars += key -> weightState
@@ -396,15 +409,15 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     sender() ! true
   }
 
-  private def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec) = {
+  private def makeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec): Unit = {
     try {
-      if (curator.discovery(basePath).queryForInstance(name, id) == null) {
+      if (curator.discovery(basePath).queryForInstances(id).isEmpty) {
         val builder = ServiceInstance.builder[WookieeServiceDetails]()
-          .id(id)
-          .name(name)
+          .name(id)
           .payload(new WookieeServiceDetails(0))
           .port(port)
           .uriSpec(uriSpec)
+
         address match {
           case Some(a) => builder.address(a)
           case None => //ignore
@@ -415,29 +428,29 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         log.info(s"Service is now discoverable ${instance.toString}")
         sender() ! true
       } else {
-        log.info(s"Not making {$id, $name} discoverable as it already is")
+        log.info(s"Not making {$id} discoverable as it already is")
         sender() ! false
       }
     } catch {
-      case e:Exception =>
+      case e: Exception =>
         log.error(e, "An error occurred while trying to make discoverable")
         sender() ! Status.Failure(e)
     }
   }
 
-  private def getInstance(basePath:String, name:String) = {
+  private def getInstance(basePath:String, name:String): Unit = {
     try {
       sender() ! curator.createServiceProvider(basePath, name).getInstance()
     } catch {
       case e:Exception =>
-        log.error(s"An error occurred while trying to get an instance from the discoverable provider: ${e.getMessage()}")
+        log.error(s"An error occurred while trying to get an instance from the discoverable provider: ${e.getMessage}")
         sender() ! Status.Failure(e)
     }
   }
 
-  private def getAllInstances(basePath:String, name:String) = {
+  private def getAllInstances(basePath:String, name:String): Unit = {
     try {
-      sender() ! curator.createServiceProvider(basePath, name).getAllInstances.toList
+      sender() ! curator.createServiceProvider(basePath, name).getAllInstances.asScala.toList
     } catch {
       case e:Exception =>
         log.error(e, "An error occurred while trying to get all instances from the discoverable provider")
@@ -445,7 +458,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  protected def handleStateChange(state: ConnectionState) = {
+  protected def handleStateChange(state: ConnectionState): Unit = {
     log.info("Zookeeper connection state changed to {}", state.name)
     currentState = state
 
@@ -511,7 +524,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
             // Adding a new leader selector
             val sel = new LeaderLatch(getClientContext(optNamespace), path)
             sel.addListener(new LeaderListener(path, self, optNamespace))
-            sel.start
+            sel.start()
             leadershipRegistrars += ((path, optNamespace) -> LeaderEntry(sel, Set(registrar)))
           }).recover({
             case e: Exception => log.error(s"An error occurred trying to create a leader selector for the path $path", e)
@@ -521,7 +534,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
   }
 
-  private def unregisterForEvents(reg: UnregisterZookeeperEvent) = {
+  private def unregisterForEvents(reg: UnregisterZookeeperEvent): Unit = {
     reg.to match {
       case ZookeeperStateEventRegistration(registrar) => stateRegistrars -= registrar
       case ZookeeperChildEventRegistration(registrar, path, optNamespace) =>
@@ -532,7 +545,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
               if (newEntry._2.registrars.isEmpty) {
                 // No more registrars so we can shutdown the cache
                 entry.cache.getListenable.removeListener(this)
-                entry.cache.close
+                entry.cache.close()
                 val key = (path, optNamespace)
                 childRegistrars -= key
               }
@@ -549,7 +562,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
               val newEntry = (path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar))
               if (newEntry._2.registrars.isEmpty) {
                 // No more registrars so we can shutdown the leader selector
-                entry.leader.close
+                entry.leader.close()
                 val key = (path, optNamespace)
                 leadershipRegistrars -= key
               }
@@ -597,32 +610,32 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def startCurator = {
+  private def startCurator(): Unit = {
     curator.start(Some(this))
   }
 
   /**
    * This method can be overriden to provide additional functionality when stopping curator
    */
-  def stoppingCurator: Unit = {}
+  def stoppingCurator(): Unit = {}
 
-  private def stopCurator = {
+  private def stopCurator(): Unit = {
     // Close all
     childRegistrars.values foreach {
       entry =>
         entry.cache.getListenable.removeListener(this)
-        entry.cache.close
+        entry.cache.close()
     }
     childRegistrars = Map.empty
 
     leadershipRegistrars.values foreach {
       entry =>
-        entry.leader.close
+        entry.leader.close()
     }
     leadershipRegistrars = Map.empty
 
-    stoppingCurator
-    curator.stop
+    stoppingCurator()
+    curator.stop()
   }
 
   /**
@@ -673,13 +686,13 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
 
 private class LeaderListener(path: String, ref: ActorRef, namespace: Option[String])(implicit ex: ExecutionContext) extends LeaderLatchListener {
 
-  def isLeader() = publishEvent(true)
+  def isLeader(): Unit = publishEvent(true)
 
-  def notLeader() = publishEvent(false)
+  def notLeader(): Unit = publishEvent(false)
 
-  def publishEvent(leader: Boolean) = {
+  def publishEvent(leader: Boolean): Unit = {
     // Notify the registered listeners
-    implicit val timeout = Timeout(2000, TimeUnit.MILLISECONDS)
+    implicit val timeout: Timeout = Timeout(2000, TimeUnit.MILLISECONDS)
     (ref ? GetLeaderRegistrars(path, namespace)).mapTo[Set[ActorRef]].onSuccess {
       case set => set foreach {
         _ ! ZookeeperLeadershipEvent(leader)

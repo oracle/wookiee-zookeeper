@@ -5,17 +5,17 @@ import java.util.UUID
 
 import org.apache.curator.x.discovery.details.InstanceProvider
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
-import org.specs2.mutable.SpecificationWithJUnit
+import org.scalatest.{Matchers, WordSpecLike}
 
 import scala.collection.JavaConverters._
 
-class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
+class WookieeWeightedStrategySpec extends WordSpecLike with Matchers {
 
   class MockInstanceProvider(instances: Seq[ServiceInstance[WookieeServiceDetails]]) extends InstanceProvider[WookieeServiceDetails] {
     override def getInstances: util.List[ServiceInstance[WookieeServiceDetails]] = instances.toList.asJava
   }
 
-  def builderInstance(id: Int, weight: Int) =  ServiceInstance.builder[WookieeServiceDetails]()
+  def builderInstance(id: Int, weight: Int): ServiceInstance[WookieeServiceDetails] =  ServiceInstance.builder[WookieeServiceDetails]()
     .uriSpec(new UriSpec(s"akka.tcp://server@localhost:8080/"))
     .id(id.toString)
     .name(UUID.randomUUID().toString)
@@ -31,7 +31,7 @@ class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
       val instanceProvider = new MockInstanceProvider(instances)
       val strategy = new WookieeWeightedStrategy()
 
-      strategy.getInstance(instanceProvider) mustEqual null
+      strategy.getInstance(instanceProvider) shouldBe null
     }
 
 
@@ -40,7 +40,7 @@ class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
       val instanceProvider = new MockInstanceProvider(instances)
       val strategy = new WookieeWeightedStrategy()
 
-      (0 to 10).map(i => strategy.getInstance(instanceProvider).getId == i.toString).reduce(_ && _) mustEqual true
+      (0 to 10).map(i => strategy.getInstance(instanceProvider).getId == i.toString).reduce(_ && _) shouldBe true
     }
 
     "pick the lowest weighted instance" in {
@@ -48,7 +48,7 @@ class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
       val instanceProvider = new MockInstanceProvider(instances)
       val strategy = new WookieeWeightedStrategy()
 
-      strategy.getInstance(instanceProvider).getId mustEqual "0"
+      strategy.getInstance(instanceProvider).getId shouldBe "0"
     }
 
 
@@ -60,13 +60,13 @@ class WookieeWeightedStrategySpec extends SpecificationWithJUnit {
       val strategy = new WookieeWeightedStrategy()
 
       // first check prior to updated instance weights has lowest 5
-      strategy.getInstance(instanceProvider).getId mustEqual "5"
+      strategy.getInstance(instanceProvider).getId shouldBe "5"
 
 
       // second check after weight for instance 5 has increased and now id 10 is lowest
       val updatedInstances = (10 to 20).map(i => builderInstance(i,i)) ++ Seq( builderInstance(5, 15))
       val updatedProvider = new MockInstanceProvider(updatedInstances)
-      strategy.getInstance(updatedProvider).getId mustEqual "10"
+      strategy.getInstance(updatedProvider).getId shouldBe "10"
     }
 
   }

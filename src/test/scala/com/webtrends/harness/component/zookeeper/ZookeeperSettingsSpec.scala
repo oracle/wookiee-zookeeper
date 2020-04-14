@@ -23,13 +23,11 @@ import java.util.concurrent.TimeUnit
 import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 import com.webtrends.harness.utils.ConfigUtil
-import org.specs2.mutable.SpecificationWithJUnit
+import org.scalatest.{Matchers, WordSpecLike}
 
-class ZookeeperSettingsSpec extends SpecificationWithJUnit {
-
+class ZookeeperSettingsSpec extends WordSpecLike with Matchers {
   "ZookeeperSettings" should {
     "load properly with valid configuration" in {
-
       val config = ConfigFactory.parseString(
         """
           wookiee-zookeeper {
@@ -41,9 +39,9 @@ class ZookeeperSettingsSpec extends SpecificationWithJUnit {
       val subConfig = ConfigUtil.prepareSubConfig(config, "wookiee-zookeeper")
 
       val settings = ZookeeperSettings(subConfig)
-      settings.quorum must be equalTo config.getString("wookiee-zookeeper.quorum")
-      30000L must be equalTo config.getDuration("wookiee-zookeeper.session-timeout", TimeUnit.MILLISECONDS)
-      5000L must be equalTo config.getDuration("wookiee-zookeeper.retry-sleep", TimeUnit.MILLISECONDS)
+      settings.quorum shouldEqual config.getString("wookiee-zookeeper.quorum")
+      30000L shouldEqual config.getDuration("wookiee-zookeeper.session-timeout", TimeUnit.MILLISECONDS)
+      5000L shouldEqual config.getDuration("wookiee-zookeeper.retry-sleep", TimeUnit.MILLISECONDS)
     }
 
     "throw an error with an invalid datacenter configuration" in {
@@ -57,7 +55,7 @@ class ZookeeperSettingsSpec extends SpecificationWithJUnit {
         """.stripMargin).withFallback(loadConfig)
       val subConfig = ConfigUtil.prepareSubConfig(config, "wookiee-zookeeper")
 
-      ZookeeperSettings(subConfig) must throwA[IllegalArgumentException]
+      an[IllegalArgumentException] should be thrownBy ZookeeperSettings(subConfig)
     }
 
     "throw an error with an invalid pod configuration" in {
@@ -71,7 +69,7 @@ class ZookeeperSettingsSpec extends SpecificationWithJUnit {
         """.stripMargin).withFallback(loadConfig)
       val subConfig = ConfigUtil.prepareSubConfig(config, "wookiee-zookeeper")
 
-      ZookeeperSettings(subConfig) must throwA[IllegalArgumentException]
+      an[IllegalArgumentException] should be thrownBy ZookeeperSettings(subConfig)
     }
 
     "throw an error with an invalid quorum configuration" in {
@@ -85,7 +83,7 @@ class ZookeeperSettingsSpec extends SpecificationWithJUnit {
         """.stripMargin).withFallback(loadConfig)
       val subConfig = ConfigUtil.prepareSubConfig(config, "wookiee-zookeeper")
 
-      ZookeeperSettings(subConfig) must throwA[IllegalArgumentException]
+      an[IllegalArgumentException] should be thrownBy ZookeeperSettings(subConfig)
     }
   }
 

@@ -27,7 +27,7 @@ import org.apache.curator.retry.RetryNTimes
 import org.apache.curator.x.discovery.details.JsonInstanceSerializer
 import org.apache.curator.x.discovery.{ServiceDiscovery, ServiceDiscoveryBuilder, ServiceInstance, ServiceProvider}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Try
 
@@ -39,7 +39,7 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   // We manage an internal client since the CuratorFramework will not allow re-use of the client
   // after it has been closed
   private var internalClient: Option[CuratorFramework] = None
-  def client = internalClient.get
+  def client: CuratorFramework = internalClient.get
 
   // list of all discovery services by basepath
   private val discoveries = mutable.Map[DiscoveryKey, ServiceDiscovery[WookieeServiceDetails]]()
@@ -70,12 +70,12 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
         client.getConnectionStateListenable.addListener(listener.get)
       }
 
-      client.start
+      client.start()
       client.getZookeeperClient.blockUntilConnectedOrTimedOut
     }
   }
 
-  private[zookeeper] def stop: Unit = internalClient.synchronized {
+  private[zookeeper] def stop(): Unit = internalClient.synchronized {
     log.debug("Stopping curator")
     internalClient match {
       case Some(c) if c.getState == CuratorFrameworkState.STARTED =>
@@ -133,11 +133,11 @@ private[zookeeper] class Curator(settings: ZookeeperSettings) extends LoggingAda
   def getServiceProviderDetails(name:Option[String]=None) : Map[ProviderKey, Iterable[ServiceInstance[WookieeServiceDetails]]] = {
     internalClient.synchronized {
       val filteredMap = name match {
-        case Some(n) => providers.filter(k => k._1.equals(n))
+        case Some(n) => providers.filter(k => k._1.toString.equals(n))
         case None => providers
       }
       filteredMap.map {
-        k => k._1 -> collectionAsScalaIterable(k._2.getAllInstances)
+        k => k._1 -> collectionAsScalaIterableConverter(k._2.getAllInstances).asScala
       }.toMap
     }
   }

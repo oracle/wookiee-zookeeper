@@ -3,10 +3,10 @@ package com.webtrends.harness.component.zookeeper.discoverable
 import akka.actor.Actor
 import akka.pattern.ask
 import akka.util.Timeout
-import com.webtrends.harness.command.{BaseCommandResponse, CommandException, _}
+import com.webtrends.harness.command.{CommandException, _}
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
+import scala.reflect.ClassTag
 
 /**
  * @author Michael Cuthbert, Spencer Wood
@@ -18,53 +18,39 @@ trait DiscoverableCommandExecution extends CommandHelper with Discoverable {
   /**
    * Executes a discoverable command where ever it may be located
    */
-  def executeDiscoverableCommand[T:Manifest](basePath:String, name:String, bean:Option[CommandBean]=None)
-                                   (implicit timeout:Timeout) : Future[BaseCommandResponse[T]]= {
-    val p = Promise[BaseCommandResponse[T]]
-    initCommandManager onComplete {
-      case Success(_) =>
-        commandManager match {
-          case Some(cm) =>
-            getInstance(basePath, name) onComplete {
-              case Success(in) =>
-                (cm ? ExecuteRemoteCommand[T](name, in.getAddress, in.getPort, bean, timeout))(timeout).mapTo[BaseCommandResponse[T]] onComplete {
-                  case Success(s) => p success s
-                  case Failure(f) => p failure CommandException("CommandManager", f)
-                }
-              case Failure(f) => p failure CommandException("CommandManager", f)
-            }
-          case None => p failure CommandException("CommandManager", "CommandManager not found!")
-        }
-      case Failure(f) => p failure f
+  def executeDiscoverableCommand[Input <: Product : ClassTag, Output <: Any : ClassTag]
+    (basePath: String, id: String, bean: Input)(implicit timeout: Timeout): Future[Output]= {
+
+    initCommandManager flatMap { cm =>
+      getInstance(basePath, id) flatMap { in =>
+        (cm ? ExecuteRemoteCommand[Input](id, in.getAddress, in.getPort, bean, timeout)) (timeout).mapTo[Output]
+      }
+    } recover {
+      case f: Throwable =>
+        throw CommandException("CommandManager", f)
     }
-    p.future
   }
 
   /**
     * Executes a discoverable command on every server that is hosting it
     */
-  def broadcastDiscoverableCommand[T:Manifest](basePath:String, name:String, bean:Option[CommandBean]=None)
-                                            (implicit timeout:Timeout) : Future[BaseCommandResponse[T]]= {
-    val p = Promise[BaseCommandResponse[T]]
-    initCommandManager onComplete {
-      case Success(_) =>
-        commandManager match {
-          case Some(cm) =>
-            getInstances(basePath, name) onComplete {
-              case Success(in) if in.nonEmpty =>
-                val futures = in.map(i => (cm ? ExecuteRemoteCommand[T](name,
-                  i.getAddress, i.getPort, bean, timeout))(timeout).mapTo[BaseCommandResponse[T]])
-                Future.sequence(futures) onComplete {
-                  case Success(s) => p success CommandResponse[T](Some(s.flatMap(_.data).asInstanceOf[T]), s.head.responseType)
-                  case Failure(f) => p failure CommandException("CommandManager", f)
-                }
-              case Failure(f) => p failure CommandException("CommandManager", f)
-              case _ => p failure CommandException("CommandManager", new IllegalStateException(s"No instances found for $basePath"))
-            }
-          case None => p failure CommandException("CommandManager", "CommandManager not found!")
+  def broadcastDiscoverableCommand[Input <: Product : ClassTag, Output <: Any : ClassTag]
+    (basePath: String, id: String, bean: Input)(implicit timeout: Timeout): Future[Iterable[Output]]= {
+
+    initCommandManager flatMap { cm =>
+      getInstances(basePath, id) flatMap { in =>
+        if (in.isEmpty)
+          throw new IllegalStateException(s"No instances found for $basePath")
+
+        val futures = in.map { i =>
+          (cm ? ExecuteRemoteCommand[Input](id, i.getAddress, i.getPort, bean, timeout)) (timeout).mapTo[Output]
         }
-      case Failure(f) => p failure f
+
+        Future.sequence(futures)
+      }
+    } recover {
+      case f: Throwable =>
+        throw CommandException("CommandManager", f)
     }
-    p.future
   }
 }

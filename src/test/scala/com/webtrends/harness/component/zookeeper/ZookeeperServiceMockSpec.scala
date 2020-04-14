@@ -1,21 +1,22 @@
 package com.webtrends.harness.component.zookeeper
 
+import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import com.webtrends.harness.component.zookeeper.ZookeeperService.{CreateCounter, GetPathData, GetRegistrationPath, getMediator}
+import com.webtrends.harness.component.zookeeper.ZookeeperService.{GetRegistrationPath, getMediator}
 import com.webtrends.harness.service.test.TestHarness
-import org.specs2.mutable.SpecificationWithJUnit
-import akka.pattern.ask
 import org.apache.zookeeper.KeeperException.NoNodeException
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ZookeeperServiceMockSpec
-  extends SpecificationWithJUnit with ZookeeperAdapterNonActor {
+  extends WordSpecLike with Matchers with ZookeeperAdapterNonActor with BeforeAndAfterAll {
 
-  val testHarness = TestHarness(ConfigFactory.parseString(
+  val testHarness: TestHarness = TestHarness(ConfigFactory.parseString(
     """
       |wookiee-zookeeper {
       |  enabled = true
@@ -24,13 +25,11 @@ class ZookeeperServiceMockSpec
       |  base-path = "/test_path"
       |  register-self = false
       |}
-    """.stripMargin), None, None)
-  override implicit val zkActorSystem = TestHarness.system.get
+    """.stripMargin), port = 2121)
+  override implicit val zkActorSystem: ActorSystem = TestHarness.system(2121).get
 
-  implicit val to = Timeout(5 seconds)
-  val awaitResultTimeout = 5000 milliseconds
-
-  sequential
+  implicit val to: Timeout = Timeout(5 seconds)
+  val awaitResultTimeout: FiniteDuration = 5000 milliseconds
 
   "The zookeeper service" should {
     "don't register self when not set to" in {
@@ -39,7 +38,7 @@ class ZookeeperServiceMockSpec
         val res = Await.result(getData(startPath, None), awaitResultTimeout)
         new String(res) shouldEqual "should not be set"
       } catch {
-        case ex: NoNodeException =>
+        case _: NoNodeException =>
           log.info(s"No node registered for [$startPath] as expected")
           true shouldEqual true
       }
@@ -85,7 +84,7 @@ class ZookeeperServiceMockSpec
     }
 
     " return an error when getting data for an invalid path " in {
-      Await.result(getData("/testbad"), awaitResultTimeout) must throwA[Exception]
+      an [Exception] should be thrownBy Await.result(getData("/testbad"), awaitResultTimeout)
     }
 
     " allow callers to get children with no data for a valid path " in {
@@ -103,7 +102,7 @@ class ZookeeperServiceMockSpec
     }
 
     " return an error when getting children for an invalid path " in {
-      Await.result(getChildren("/testbad"), awaitResultTimeout) must throwA[Exception]
+      an [Exception] should be thrownBy Await.result(getChildren("/testbad"), awaitResultTimeout)
     }
 
     "allow callers to create atomic longs " in {
@@ -115,13 +114,11 @@ class ZookeeperServiceMockSpec
       res2.increment()
       res3.increment()
       res.increment()
-      res2.get().postValue() mustEqual 3
-      res.get().postValue() mustEqual 3
-      res3.get().postValue() mustEqual 1
+      res2.get().postValue() shouldEqual 3
+      res.get().postValue() shouldEqual 3
+      res3.get().postValue() shouldEqual 1
     }
   }
 
-  step {
-    TestKit.shutdownActorSystem(zkActorSystem)
-  }
+  override protected def afterAll(): Unit = TestKit.shutdownActorSystem(zkActorSystem)
 }

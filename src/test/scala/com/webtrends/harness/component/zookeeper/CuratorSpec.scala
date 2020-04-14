@@ -23,18 +23,13 @@ import org.apache.curator.framework.imps.CuratorFrameworkState
 import org.apache.curator.test.TestingServer
 import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import org.specs2.mutable.SpecificationWithJUnit
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
-class CuratorSpec extends SpecificationWithJUnit {
-
+class CuratorSpec extends WordSpecLike with Matchers with BeforeAndAfterAll {
   val zkServer = new TestingServer()
 
-  // Run these tests sequentially so that the curator instance can be create and destroyed
-  sequential
-
-  val settings = ZookeeperSettings(loadConfig)
-
   "The curator object" should {
+    val settings: ZookeeperSettings = ZookeeperSettings(loadConfig)
 
     "only utilize a single instance of the curator object" in {
       val cur = Curator(settings)
@@ -43,26 +38,24 @@ class CuratorSpec extends SpecificationWithJUnit {
       val cur2 = Curator(settings)
       cur2.start(None)
 
-      val res = cur must beTheSameAs(cur2)
-      cur.stop
+      val res = cur shouldBe cur2
+      cur.stop()
       res
     }
 
     "allow for lazy startup and shutdown" in {
       val cur = Curator(settings)
       cur.createClient
-      cur.client.getState must be equalTo CuratorFrameworkState.LATENT
+      cur.client.getState shouldBe CuratorFrameworkState.LATENT
 
       cur.start(None)
-      val res = cur.client.getState must be equalTo CuratorFrameworkState.STARTED
-      cur.stop
+      val res = cur.client.getState shouldBe CuratorFrameworkState.STARTED
+      cur.stop()
       res
     }
   }
 
-  step {
-    zkServer.close
-  }
+  override protected def afterAll(): Unit = zkServer.close()
 
   def loadConfig: Config = {
     val c = ConfigFactory.parseString("""

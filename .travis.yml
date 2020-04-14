@@ -19,9 +19,9 @@ env:
 
 matrix:
   include:
-    - scala: '2.11.12'
+    - scala: '2.12.10'
       env: SCALAVER=2.11
-    - scala: '2.12.6'
+    - scala: '2.13.1'
       env: SCALAVER=2.12
 
 branches:

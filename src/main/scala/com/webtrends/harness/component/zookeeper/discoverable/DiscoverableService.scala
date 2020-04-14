@@ -22,7 +22,6 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.event.Logging
 import akka.pattern.ask
 import akka.util.Timeout
 import com.webtrends.harness.component.zookeeper.{WookieeServiceDetails, ZookeeperManager}
@@ -31,39 +30,38 @@ import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import scala.concurrent.Future
 
 /**
- * @author Michael Cuthbert on 7/9/15.
+ * @author Michael Cuthbert and Spencer Wood
  */
 private[harness] class DiscoverableService()(implicit system: ActorSystem) {
   import DiscoverableService._
 
   private[zookeeper] val defaultTimeout = Timeout(system.settings.config
     .getDuration(s"${ZookeeperManager.ComponentName}.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
-  private val log = Logging(system, this.getClass)
 
-  def queryForNames(basePath:String)(implicit timeout:Timeout = defaultTimeout) : Future[util.Collection[String]] = {
+  def queryForNames(basePath: String)(implicit timeout:Timeout = defaultTimeout) : Future[util.Collection[String]] = {
     (mediator.get ? QueryForNames(basePath)).mapTo[util.Collection[String]]
   }
 
-  def queryForInstances(basePath:String, name:String, id:Option[String]=None)
+  def queryForInstances(basePath: String, id: String)
                        (implicit timeout:Timeout = defaultTimeout): Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    (mediator.get ? QueryForInstances(basePath, name, id)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
+    (mediator.get ? QueryForInstances(basePath, id)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
   }
 
-  def makeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec)
+  def makeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec)
                       (implicit timeout:Timeout = defaultTimeout): Future[Boolean] = {
-    (mediator.get ? MakeDiscoverable(basePath, id, name, address, port, uriSpec)).mapTo[Boolean]
+    (mediator.get ? MakeDiscoverable(basePath, id, address, port, uriSpec)).mapTo[Boolean]
   }
 
-  def getInstance(basePath:String, name:String)(implicit timeout:Timeout) : Future[ServiceInstance[WookieeServiceDetails]] = {
-    (mediator.get ? GetInstance(basePath, name)).mapTo[ServiceInstance[WookieeServiceDetails]]
+  def getInstance(basePath: String, id: String)(implicit timeout:Timeout) : Future[ServiceInstance[WookieeServiceDetails]] = {
+    (mediator.get ? GetInstance(basePath, id)).mapTo[ServiceInstance[WookieeServiceDetails]]
   }
 
-  def getAllInstances(basePath:String, name:String)(implicit timeout:Timeout) : Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    (mediator.get ? GetAllInstances(basePath, name)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
+  def getAllInstances(basePath: String, id: String)(implicit timeout:Timeout) : Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = {
+    (mediator.get ? GetAllInstances(basePath, id)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
   }
 
-  def updateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean)(implicit timeout:Timeout) : Future[Boolean] = {
-    (mediator.get ? UpdateWeight(weight, basePath, name, id, forceSet)).mapTo[Boolean]
+  def updateWeight(weight: Int, basePath: String, id: String, forceSet: Boolean)(implicit timeout:Timeout) : Future[Boolean] = {
+    (mediator.get ? UpdateWeight(weight, basePath, id, forceSet)).mapTo[Boolean]
   }
 }
 
@@ -72,23 +70,23 @@ object DiscoverableService {
 
   private var mediator: Option[ActorRef] = None
 
-  private[harness] def registerMediator(actor: ActorRef) = {
+  private[harness] def registerMediator(actor: ActorRef): Unit = {
     mediator = Some(actor)
   }
 
-  private[harness] def unregisterMediator(actor: ActorRef) = {
+  private[harness] def unregisterMediator(actor: ActorRef): Unit = {
     mediator = None
   }
 
-  @SerialVersionUID(1L) private[harness] case class QueryForNames(basePath:String)
+  @SerialVersionUID(1L) private[harness] case class QueryForNames(basePath: String)
 
-  @SerialVersionUID(2L) private[harness] case class UpdateWeight(weight: Int, basePath:String, name:String, id: String, forceSet: Boolean)
+  @SerialVersionUID(3L) private[harness] case class UpdateWeight(weight: Int, basePath: String, id: String, forceSet: Boolean)
 
-  @SerialVersionUID(1L) private[harness] case class QueryForInstances(basePath:String, name:String, id:Option[String]=None)
+  @SerialVersionUID(2L) private[harness] case class QueryForInstances(basePath:String, id: String)
 
-  @SerialVersionUID(1L) private[harness] case class MakeDiscoverable(basePath:String, id:String, name:String, address:Option[String], port:Int, uriSpec:UriSpec)
+  @SerialVersionUID(2L) private[harness] case class MakeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec)
 
-  @SerialVersionUID(1L) private[harness] case class GetInstance(basePath:String, name:String)
+  @SerialVersionUID(2L) private[harness] case class GetInstance(basePath: String, id: String)
 
-  @SerialVersionUID(1L) private[harness] case class GetAllInstances(basePath:String, name:String)
+  @SerialVersionUID(2L) private[harness] case class GetAllInstances(basePath: String, id: String)
 }
