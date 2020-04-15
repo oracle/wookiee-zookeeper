@@ -18,7 +18,6 @@
  */
 package com.webtrends.harness.component.zookeeper.discoverable
 
-import java.util
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -38,13 +37,13 @@ private[harness] class DiscoverableService()(implicit system: ActorSystem) {
   private[zookeeper] val defaultTimeout = Timeout(system.settings.config
     .getDuration(s"${ZookeeperManager.ComponentName}.default-send-timeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
 
-  def queryForNames(basePath: String)(implicit timeout:Timeout = defaultTimeout) : Future[util.Collection[String]] = {
-    (mediator.get ? QueryForNames(basePath)).mapTo[util.Collection[String]]
+  def queryForNames(basePath: String)(implicit timeout:Timeout = defaultTimeout) : Future[List[String]] = {
+    (mediator.get ? QueryForNames(basePath)).mapTo[List[String]]
   }
 
   def queryForInstances(basePath: String, id: String)
-                       (implicit timeout:Timeout = defaultTimeout): Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    (mediator.get ? QueryForInstances(basePath, id)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
+                       (implicit timeout:Timeout = defaultTimeout): Future[List[ServiceInstance[WookieeServiceDetails]]] = {
+    (mediator.get ? QueryForInstances(basePath, id)).mapTo[List[ServiceInstance[WookieeServiceDetails]]]
   }
 
   def makeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec)
@@ -56,8 +55,8 @@ private[harness] class DiscoverableService()(implicit system: ActorSystem) {
     (mediator.get ? GetInstance(basePath, id)).mapTo[ServiceInstance[WookieeServiceDetails]]
   }
 
-  def getAllInstances(basePath: String, id: String)(implicit timeout:Timeout) : Future[Iterable[ServiceInstance[WookieeServiceDetails]]] = {
-    (mediator.get ? GetAllInstances(basePath, id)).mapTo[Iterable[ServiceInstance[WookieeServiceDetails]]]
+  def getAllInstances(basePath: String, id: String)(implicit timeout:Timeout) : Future[List[ServiceInstance[WookieeServiceDetails]]] = {
+    (mediator.get ? GetAllInstances(basePath, id)).mapTo[List[ServiceInstance[WookieeServiceDetails]]]
   }
 
   def updateWeight(weight: Int, basePath: String, id: String, forceSet: Boolean)(implicit timeout:Timeout) : Future[Boolean] = {
