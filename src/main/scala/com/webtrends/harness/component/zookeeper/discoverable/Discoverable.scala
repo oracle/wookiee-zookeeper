@@ -25,18 +25,17 @@ trait Discoverable {
                        (implicit timeout:Timeout): Future[List[ServiceInstance[WookieeServiceDetails]]] =
     service.queryForInstances(basePath, id)
 
-  def makeDiscoverable(basePath: String, id: String)(implicit timeout:Timeout): Future[Boolean] = {
-    makeDiscoverable(basePath, id, Some(address), port, new UriSpec(s"akka.tcp://server@$address:$port/${context.system.name}"))
-  }
+  def makeDiscoverable(basePath: String, id: String)(implicit timeout:Timeout): Future[Boolean] =
+    makeDiscoverable(basePath, id, Some(address), port,
+      new UriSpec(s"akka.tcp://server@$address:$port/${context.system.name}"))
 
   def makeDiscoverable(
                         basePath: String,
                         id: String,
                         address: Option[String],
                         port: Int,
-                        uriSpec: UriSpec)(implicit timeout:Timeout): Future[Boolean] = {
+                        uriSpec: UriSpec)(implicit timeout:Timeout): Future[Boolean] =
     service.makeDiscoverable(basePath, id, address, port, uriSpec)
-  }
 
   def getInstances(basePath:String, id:String)
                   (implicit timeout:Timeout): Future[List[ServiceInstance[WookieeServiceDetails]]] =

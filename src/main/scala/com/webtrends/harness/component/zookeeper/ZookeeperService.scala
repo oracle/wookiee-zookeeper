@@ -42,7 +42,7 @@ object ZookeeperService extends LoggingAdapter {
     mediatorMap.put(system, actor)
   }
 
-  private[harness] def unregisterMediator(system: ActorSystem) = {
+  private[harness] def unregisterMediator(system: ActorSystem): Unit = {
     if (mediatorMap.contains(system)) {
       log.info(s"Unregistering mediator for actor system: [$system]")
       mediatorMap.remove(system) foreach(_ ! PoisonPill)

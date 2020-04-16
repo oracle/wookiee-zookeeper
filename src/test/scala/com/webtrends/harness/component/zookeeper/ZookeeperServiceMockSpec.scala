@@ -120,5 +120,6 @@ class ZookeeperServiceMockSpec
     }
   }
 
-  override protected def afterAll(): Unit = TestKit.shutdownActorSystem(zkActorSystem)
+  override protected def afterAll(): Unit =
+    TestKit.shutdownActorSystem(zkActorSystem)
 }

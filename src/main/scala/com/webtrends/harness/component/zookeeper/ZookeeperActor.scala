@@ -12,12 +12,9 @@ import com.webtrends.harness.component.zookeeper.ZookeeperEvent.Internal.{Regist
 import com.webtrends.harness.component.zookeeper.ZookeeperEvent._
 import com.webtrends.harness.component.zookeeper.ZookeeperService._
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
-import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService
 import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableService._
 import com.webtrends.harness.health.{ActorHealth, ComponentState, HealthComponent}
 import com.webtrends.harness.logging.ActorLoggingAdapter
-import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
@@ -29,6 +26,8 @@ import org.apache.curator.retry.ExponentialBackoffRetry
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
@@ -86,7 +85,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     Try({
       // Register as a handler
       ZookeeperService.registerMediator(self)(context.system)
-      DiscoverableService.registerMediator(self)
       startCurator()
 
       context.system.scheduler.schedule(
@@ -105,7 +103,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     unregisterNode()
     // Un-register as a handler
     ZookeeperService.unregisterMediator(context.system)
-    DiscoverableService.unregisterMediator(self)
     // We are stopped so shutdown curator
     stopCurator()
     log.info("Curator client stopped")
@@ -167,7 +164,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       getInstance(basePath, name)
     // get all the instances from the provider
     case GetAllInstances(basePath, name) =>
-      getAllInstances(basePath, name)
+      allInstances(basePath, name)
     // get all the instances from the provider
     case _: GetRegistrationPath =>
       sender ! registrationPath
@@ -302,7 +299,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     } catch {
       case _: NoNodeException => sender() ! path // Swallow
       case e: Exception =>
-        log.error(e, "An error occurred trying to create a node for the path {}", path)
+        log.error(e, "An error occurred trying to delete a node for the path {}", path)
         sender() ! Status.Failure(e)
     }
   }
@@ -419,7 +416,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def getInstance(basePath:String, name:String): Unit = {
+  private def getInstance(basePath: String, name: String): Unit = {
     try {
       sender() ! curator.createServiceProvider(basePath, name).getInstance()
     } catch {
@@ -429,7 +426,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     }
   }
 
-  private def getAllInstances(basePath:String, name:String): Unit = {
+  private def allInstances(basePath: String, name: String): Unit = {
     try {
       sender() ! curator.createServiceProvider(basePath, name).getAllInstances.asScala.toList
     } catch {

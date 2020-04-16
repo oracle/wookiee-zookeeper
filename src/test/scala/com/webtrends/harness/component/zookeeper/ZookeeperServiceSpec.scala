@@ -12,10 +12,9 @@ import com.webtrends.harness.component.zookeeper.discoverable.DiscoverableServic
 import com.webtrends.harness.component.zookeeper.mock.MockZookeeper
 import org.apache.curator.test.TestingServer
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
-import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import org.scalatest.concurrent.Eventually._
-import org.scalatest.concurrent.PatienceConfiguration.Interval
+import org.scalatest.concurrent.PatienceConfiguration
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
