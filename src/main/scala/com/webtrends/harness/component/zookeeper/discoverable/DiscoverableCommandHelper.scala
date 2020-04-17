@@ -15,13 +15,13 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
   implicit val basePath: String
 
   /**
-    * Used to register a new Command that is accessible from other Services via `executeRemoteCommand`
+    * Used to register a new Endpoint that is accessible from other Services via `executeRemoteCommand`
     *
     * @param id name of the command you want to add, used to reference it later or from other Services
     * @param businessLogic the main business logic of the Command itself, will be executed each time
     */
-  def addDiscoverableCommand[U <: Product : ClassTag, V : ClassTag](id: String,
-                                                                    businessLogic: U => Future[V]
+  def addDiscoverableEndpoint[U <: Product : ClassTag, V : ClassTag](id: String,
+                                                                     businessLogic: U => Future[V]
                                                                    ): Future[ActorRef] = {
     val props = CommandFactory.createCommand(businessLogic)
     addAndMakeDiscoverable(AddCommandWithProps(id, props))

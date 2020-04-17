@@ -50,7 +50,7 @@ class DiscoverableCommandSpec extends BaseWookieeTest with WordSpecLike with Mus
         def receive: Receive = {
           case add: AddCommand =>
             val send = sender()
-            addDiscoverableCommand(add.id, add.logic) recover {
+            addDiscoverableEndpoint(add.id, add.logic) recover {
               case ex: Throwable =>
                 ex.printStackTrace()
             } foreach { _ =>
