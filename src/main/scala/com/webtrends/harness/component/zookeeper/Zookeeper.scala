@@ -1,25 +1,23 @@
 /*
- * Copyright 2015 Webtrends (http://www.webtrends.com)
- *
- * See the LICENCE.txt file distributed with this work for additional
- * information regarding copyright ownership.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 package com.webtrends.harness.component.zookeeper
 
 import java.util.concurrent.TimeUnit
 
+import akka.actor.ActorSystem
 import com.typesafe.config.{Config, ConfigFactory}
 import com.webtrends.harness.app.HActor
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
@@ -34,11 +32,11 @@ import scala.util.Try
 trait Zookeeper {
   this: HActor =>
   import Zookeeper._
-  implicit val system = context.system
+  implicit val system: ActorSystem = context.system
 
   // Generally clusterEnabled is only used by wookiee-cluster, also mocking support built
   // into this method for when mock-enabled or mock-port are set in wookiee-zookeeper
-  def startZookeeper(clusterEnabled: Boolean = isClusterEnabled()) = {
+  def startZookeeper(clusterEnabled: Boolean = isClusterEnabled): Unit = {
     // Load the zookeeper actor
     if (isMock(config)) {
       log.info("Zookeeper Mock Mode Enabled, Starting Local Test Server...")
@@ -68,7 +66,7 @@ trait Zookeeper {
     }
   }
 
-  def stopZookeeper() = {
+  def stopZookeeper(): Unit = {
     mockZkServer foreach {
       _.close()
     }
@@ -91,7 +89,7 @@ trait Zookeeper {
     }
   }
 
-  protected def isClusterEnabled(): Boolean = {
+  protected def isClusterEnabled: Boolean = {
     Try(config.getBoolean("wookiee-cluster.enabled")).getOrElse(false)
   }
 }

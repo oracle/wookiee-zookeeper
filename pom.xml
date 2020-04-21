@@ -13,14 +13,14 @@
         <lift.version>3.1.1</lift.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scoverage.plugin.version>1.1.1</scoverage.plugin.version>
-        <wookiee.core.version>1.3.41</wookiee.core.version>
-        <scala.version>2.11.12</scala.version>
-        <scala.artifact.version>2.11</scala.artifact.version>
+        <wookiee.core.version>2.0-SNAPSHOT</wookiee.core.version>
+        <scala.version>2.12.10</scala.version>
+        <scala.artifact.version>2.12</scala.artifact.version>
         <build-artifact-name>${project.artifactId}-${project.version}</build-artifact-name>
     </properties>
 
     <groupId>com.webtrends</groupId>
-    <artifactId>wookiee-zookeeper_2.11</artifactId>
+    <artifactId>wookiee-zookeeper_2.12</artifactId>
     <version>2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Component: Zookeeper</name>
@@ -147,6 +147,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.artifact.version}</artifactId>
+            <version>3.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-framework</artifactId>
             <version>${curator.version}</version>
@@ -191,14 +197,14 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>net.liftweb</groupId>
-            <artifactId>lift-json_${scala.artifact.version}</artifactId>
-            <version>${lift.version}</version>
+            <groupId>org.json4s</groupId>
+            <artifactId>json4s-jackson_${scala.artifact.version}</artifactId>
+            <version>3.5.0</version>
         </dependency>
         <dependency>
-            <groupId>net.liftweb</groupId>
-            <artifactId>lift-json-ext_${scala.artifact.version}</artifactId>
-            <version>${lift.version}</version>
+            <groupId>org.json4s</groupId>
+            <artifactId>json4s-ext_${scala.artifact.version}</artifactId>
+            <version>3.5.0</version>
         </dependency>
     </dependencies>
 
@@ -299,6 +305,24 @@
                         <include>**/*Spec.*</include>
                     </includes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <version>1.0</version>
+                <configuration>
+                    <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+                    <junitxml>.</junitxml>
+                    <filereports>tests.txt</filereports>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>

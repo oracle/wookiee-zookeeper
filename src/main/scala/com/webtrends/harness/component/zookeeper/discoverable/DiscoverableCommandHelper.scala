@@ -1,61 +1,75 @@
+/*
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
 package com.webtrends.harness.component.zookeeper.discoverable
 
-import java.util.UUID
-
-import akka.actor.{ActorRef, Props, Actor}
-import akka.util.Timeout
-import scala.concurrent.duration._
+import akka.actor.{Actor, ActorRef, Props}
 import akka.pattern.ask
+import akka.util.Timeout
 import com.webtrends.harness.command._
 
-import scala.concurrent.{Promise, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
-/**
- * @author Michael Cuthbert on 7/10/15.
- */
 trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
   this: Actor =>
   import context.dispatcher
-  implicit val basePath:String
+  implicit val basePath: String
+
+  /**
+    * Used to register a new Endpoint that is accessible from other Services via `executeRemoteCommand`
+    *
+    * @param id name of the command you want to add, used to reference it later or from other Services
+    * @param businessLogic the main business logic of the Command itself, will be executed each time
+    */
+  def addDiscoverableEndpoint[U <: Product : ClassTag, V : ClassTag](id: String,
+                                                                     businessLogic: U => Future[V]
+                                                                   ): Future[ActorRef] = {
+    val props = CommandFactory.createCommand(businessLogic)
+    addAndMakeDiscoverable(AddCommandWithProps(id, props))
+  }
 
   /**
    * Wrapper that allows services to add commands to the command manager with a single discoverable command
    *
-   * @param name name of the command you want to add
+   * @param id name of the command you want to add, Wookiee v2 Note: Use what was in `name` field for `id`
    * @param props the props for that command actor class
-   * @param id id
-   * @return
    */
-  def addDiscoverableCommandWithProps[T<:Command](name:String, props:Props, id:Option[String]=None) : Future[Boolean] = {
-    addDiscoverable(name, props, id)
-  }
+  def addDiscoverableCommandWithProps(id: String, props: Props): Future[ActorRef] =
+    addAndMakeDiscoverable(AddCommandWithProps(id, props))
 
   /**
    * Wrapper that allows services add commands to the command manager with a single discoverable command
    *
-   * @param name name of the command you want to add
+   * @param id name of the command you want to add, Wookiee v2 Note: Use what was in `name` field for `id`
    * @param actorClass the class for the actor
-   * @param id id
    */
-  def addDiscoverableCommand[T<:Command](name:String, actorClass:Class[T], id:Option[String]=None) : Future[Boolean] = {
-    addDiscoverable(name, Props(actorClass), id)
-  }
+  def addDiscoverableCommand[T: ClassTag](id: String, actorClass: Class[T]): Future[ActorRef] =
+    addAndMakeDiscoverable(AddCommand(id, actorClass))
 
-  private def addDiscoverable[T<:Command](name: String, props: Props, id: Option[String] = None): Future[Boolean] = {
-    implicit val timeout = Timeout(5 seconds)
-    val idValue = id.getOrElse(UUID.randomUUID().toString)
-    val m = AddCommandWithProps(name, props)
 
-    val result = for {
-      _ <- initCommandManager
-      _ <- commandManager.map(_ ? m).getOrElse(Future.failed(new CommandException("CommandManager", "CommandManager not found!")))
-      r <- makeDiscoverable(basePath, idValue, name)
-    } yield {
-      r
+  private def addAndMakeDiscoverable(addCommand: AddCommands): Future[ActorRef] = {
+    implicit val timeout: Timeout = Timeout(5 seconds)
+
+    initCommandManager flatMap { cm =>
+      (cm ? addCommand).mapTo[ActorRef] map { ref =>
+        makeDiscoverable(basePath, addCommand.id)
+        ref
+      }
     }
-
-    result.onFailure { case t => log.error("Failed to add discoverable command", t) }
-    result
   }
 }
