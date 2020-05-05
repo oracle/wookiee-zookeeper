@@ -25,20 +25,20 @@ class DiscoverableServiceSpec
 
   "The discoverable service" should {
     lazy val zkActor: ActorRef = system.actorOf(ZookeeperActor.props(ZookeeperSettings(system.settings.config)))
-    implicit val to: Timeout = Timeout(5 seconds)
+    implicit val to: Timeout = Timeout(5.seconds)
 
-    Await.result(zkActor ? Identify("xyz123"), 5 seconds)
+    Await.result(zkActor ? Identify("xyz123"), 5.seconds)
     lazy val service: DiscoverableService = DiscoverableService()
     Thread.sleep(5000)
 
     " make a service discoverable " in {
       val res = Await.result(service.makeDiscoverable(path, testServiceName, None, 2552,
-        new UriSpec(s"akka.tcp://server@[Server]:2552/$testServiceName")), 2000 milliseconds)
+        new UriSpec(s"akka.tcp://server@[Server]:2552/$testServiceName")), 2000.milliseconds)
       res shouldBe true
     }
 
     " get an instance of a discoverable service" in {
-      val res2 = Await.result(service.getInstance(path, testServiceName), 2000 milliseconds)
+      val res2 = Await.result(service.getInstance(path, testServiceName), 2000.milliseconds)
       res2.getName shouldBe testServiceName
     }
   }

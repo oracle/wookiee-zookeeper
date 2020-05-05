@@ -104,8 +104,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       startCurator()
 
       context.system.scheduler.schedule(
-        setWeightInterval seconds,
-        setWeightInterval seconds,
+        setWeightInterval.seconds,
+        setWeightInterval.seconds,
         self,
         SetWeight)
 
@@ -687,8 +687,8 @@ private class LeaderListener(path: String, ref: ActorRef, namespace: Option[Stri
   def publishEvent(leader: Boolean): Unit = {
     // Notify the registered listeners
     implicit val timeout: Timeout = Timeout(2000, TimeUnit.MILLISECONDS)
-    (ref ? GetLeaderRegistrars(path, namespace)).mapTo[Set[ActorRef]].onSuccess {
-      case set => set foreach {
+    (ref ? GetLeaderRegistrars(path, namespace)).mapTo[Set[ActorRef]].map { set =>
+      set foreach {
         _ ! ZookeeperLeadershipEvent(leader)
       }
     }

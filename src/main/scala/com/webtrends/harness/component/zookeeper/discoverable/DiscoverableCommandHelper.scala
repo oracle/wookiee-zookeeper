@@ -63,7 +63,7 @@ trait DiscoverableCommandHelper extends CommandHelper with Discoverable {
 
 
   private def addAndMakeDiscoverable(addCommand: AddCommands): Future[ActorRef] = {
-    implicit val timeout: Timeout = Timeout(5 seconds)
+    implicit val timeout: Timeout = Timeout(5.seconds)
 
     initCommandManager flatMap { cm =>
       (cm ? addCommand).mapTo[ActorRef] map { ref =>

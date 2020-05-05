@@ -49,7 +49,7 @@ object MockZookeeper {
       system.actorOf(props(zkSettings, clusterEnabled), actorName.get)
     } else system.actorOf(props(zkSettings, clusterEnabled))
 
-    ActorWaitHelper.awaitActorRef(zkActor, system)(Timeout(15 seconds))
+    ActorWaitHelper.awaitActorRef(zkActor, system)(Timeout(15.seconds))
     MockZookeeper(system)
   }
 
