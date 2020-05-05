@@ -17,9 +17,9 @@ import scala.concurrent.{Await, Future}
 class DiscoverableCommandSpec extends BaseWookieeTest with WordSpecLike with MustMatchers with BeforeAndAfterAll with PatienceConfiguration {
   val path = "/discovery/test"
   val testServiceName = "DiscoveryService"
-  implicit val to: Timeout = Timeout(120 seconds)
+  implicit val to: Timeout = Timeout(120.seconds)
   var commandActor: ActorRef = _
-  eventually(timeout(5 seconds), interval(200 milliseconds)) { ZookeeperService.getMediator(system) must not be None }
+  eventually(timeout(5.seconds), interval(200.milliseconds)) { ZookeeperService.getMediator(system) must not be None }
 
   override def componentMap: Option[Map[String, Class[_ <: Component]]] = Some(Map("wookiee-zookeeper" -> classOf[ZookeeperManager]))
 

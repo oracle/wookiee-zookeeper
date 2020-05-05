@@ -27,8 +27,8 @@ class ZookeeperServiceSpec
   val service: ZookeeperAdapterNonActor = MockZookeeper(zkServer.getConnectString)
   val zkActor: ActorRef = ZookeeperService.getZkActor.get
 
-  implicit val to: Timeout = Timeout(5 seconds)
-  val awaitResultTimeout: FiniteDuration = 5000 milliseconds
+  implicit val to: Timeout = Timeout(5.seconds)
+  val awaitResultTimeout: FiniteDuration = 5000.milliseconds
 
   "The zookeeper service" should {
     "allow callers to create a node for a valid path" in {
@@ -120,7 +120,7 @@ class ZookeeperServiceSpec
         r.asInstanceOf[List[ServiceInstance[WookieeServiceDetails]]]
       }
 
-      eventually(timeout(3 seconds), interval(100 milliseconds)) { result.head.getPayload.getWeight shouldBe 100 }
+      eventually(timeout(3.seconds), interval(100.milliseconds)) { result.head.getPayload.getWeight shouldBe 100 }
     }
 
     "update weight in zookeeper right away if forceSet is true" in {
@@ -165,7 +165,7 @@ class ZookeeperServiceSpec
     }
 
     "use set weight interval defined in config" in {
-      Await.result(zkActor ? GetSetWeightInterval(), 3 second).asInstanceOf[Long] shouldBe 2
+      Await.result(zkActor ? GetSetWeightInterval(), 3.second).asInstanceOf[Long] shouldBe 2
     }
   }
 

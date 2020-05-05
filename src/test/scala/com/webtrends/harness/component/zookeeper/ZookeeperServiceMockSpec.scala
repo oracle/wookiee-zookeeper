@@ -28,8 +28,8 @@ class ZookeeperServiceMockSpec
     """.stripMargin), port = 2121)
   override implicit val zkActorSystem: ActorSystem = TestHarness.system(2121).get
 
-  implicit val to: Timeout = Timeout(5 seconds)
-  val awaitResultTimeout: FiniteDuration = 5000 milliseconds
+  implicit val to: Timeout = Timeout(5.seconds)
+  val awaitResultTimeout: FiniteDuration = 5000.milliseconds
 
   "The zookeeper service" should {
     "don't register self when not set to" in {
