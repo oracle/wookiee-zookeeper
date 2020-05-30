@@ -26,12 +26,6 @@ matrix:
     - scala: '2.13.1'
       env: SCALAVER=2.13
 
-branches:
-  only:
-    - master
-    # Release tags, e.g. 2.10.0, 2.x.x, 3.10.x, 3.0.0-RC1, 3.0.x-RC3
-    - /[0-9]+\.[0-9x]+\.[0-9x]+(-RC)?[0-9x]*/
-
 cache:
   directories:
     - $HOME/.m2
@@ -46,10 +40,13 @@ install: true
 script:
   - |
     if [ "$TRAVIS_TAG" != "" ]; then
-      mvn versions:set -DnewVersion=$TRAVIS_TAG
+      VERS=$TRAVIS_TAG
+    else
+      VERS=`cat VERSION`"-$TRAVIS_BRANCH-SNAPSHOT"
     fi
   - |
     if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
+      mvn versions:set -DnewVersion="$VERS"
       mvn deploy --settings target/travis/settings.xml
     fi
   - |

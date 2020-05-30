@@ -17,7 +17,7 @@ import scala.concurrent.{Await, Future}
 class DiscoverableCommandSpec extends BaseWookieeTest with WordSpecLike with MustMatchers with BeforeAndAfterAll with PatienceConfiguration {
   val path = "/discovery/test"
   val testServiceName = "DiscoveryService"
-  implicit val to: Timeout = Timeout(120.seconds)
+  implicit val to: Timeout = Timeout(30.seconds)
   var commandActor: ActorRef = _
   eventually(timeout(5.seconds), interval(200.milliseconds)) { ZookeeperService.getMediator(system) must not be None }
 
@@ -43,7 +43,7 @@ class DiscoverableCommandSpec extends BaseWookieeTest with WordSpecLike with Mus
     case class AddCommand(id: String, logic: Input => Future[Output])
     case class ExecuteCommand(id: String, input: Input)
 
-    "Be able to add and execute a new Command" in {
+    "be able to add and execute a new Command" in {
       commandActor = system.actorOf(Props(new Actor with DiscoverableCommandHelper with DiscoverableCommandExecution {
         import context.dispatcher
 
