@@ -28,7 +28,7 @@ class DiscoverableCommandSpec extends BaseWookieeTest with WordSpecLike with Mus
       wookiee-zookeeper {
         enabled = true
         mock-enabled = true
-        mock-port = 59595
+        mock-port = 59596
         base-path = "/discovery/test"
         register-self = false
       }
