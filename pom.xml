@@ -9,8 +9,7 @@
         <build.version>1.0.0</build.version>
         <release.type>SNAPSHOT</release.type>
         <build>${build.number}</build>
-        <curator.version>4.2.0</curator.version>
-        <lift.version>3.1.1</lift.version>
+        <curator.version>4.3.0</curator.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scoverage.plugin.version>1.1.1</scoverage.plugin.version>
         <wookiee.core.version>2.0.0-RC2</wookiee.core.version>
@@ -127,7 +126,7 @@
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.4.14</version>
+            <version>3.6.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -138,7 +137,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>22.0</version>
+            <version>29.0-jre</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -149,7 +148,7 @@
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.artifact.version}</artifactId>
-            <version>3.0.8</version>
+            <version>3.1.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -199,12 +198,12 @@
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-jackson_${scala.artifact.version}</artifactId>
-            <version>3.6.7</version>
+            <version>3.6.8</version>
         </dependency>
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-ext_${scala.artifact.version}</artifactId>
-            <version>3.6.7</version>
+            <version>3.6.8</version>
         </dependency>
     </dependencies>
 
