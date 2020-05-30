@@ -126,7 +126,9 @@
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.6.1</version>
+            <version>3.5.8</version>
+            <!-- Can't bump this to 3.6 until support is added for curator -->
+            <!-- https://stackoverflow.com/questions/61389209/apache-curator-testingserver-creation-throws-java-lang-nosuchmethoderror -->
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -187,7 +189,7 @@
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-test</artifactId>
-            <version>2.12.0</version> <!-- https://issues.apache.org/jira/browse/CURATOR-428 -->
+            <version>${curator.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.zookeeper</groupId>
