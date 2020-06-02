@@ -41,6 +41,14 @@ and thus a service does not need to manage its own communication. Currently, not
 it does include the ability to get node data, set node data, create nodes, getting node children, receiving ZooKeeper
 state events, receiving node child events, and managing node leadership.
 
+### Increasing Artifact Version
+To bump the version of Wookiee Core/Test simply increase it in the pom file. If you are
+building a branch then it will automatically insert the branch name before SNAPSHOT.
+So for example if the pom has 2.0-SNAPSHOT as a version the final artifact will end up
+as 2.0-$branch-SNAPSHOT. If you create a tagged release in github, or if you change the
+pom to a version that doesn't contain "SNAPSHOT" then the final artifact version will 
+be literally what was in the tag/pom.
+
 ## Interacting with ZooKeeper Nodes
 
 In order to take full benefit of the functionality one simply needs to apply the trait `ZookeeperAdapter` and then start

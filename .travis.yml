@@ -42,7 +42,8 @@ script:
     if [ "$TRAVIS_TAG" != "" ]; then
       VERS=$TRAVIS_TAG
     else
-      VERS=`cat VERSION`"-$TRAVIS_BRANCH-SNAPSHOT"
+      VERS=`mvn org.apache.maven.plugins:maven-help-plugin:3.1.0:evaluate -Dexpression=project.version -q -DforceStdout`
+      VERS=`echo $VERS | sed "s/SNAPSHOT/$TRAVIS_BRANCH-SNAPSHOT/"`
     fi
   - |
     if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
