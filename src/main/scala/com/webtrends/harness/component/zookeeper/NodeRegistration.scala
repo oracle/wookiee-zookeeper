@@ -17,7 +17,7 @@ package com.webtrends.harness.component.zookeeper
 
 import java.net.InetAddress
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, ExtendedActorSystem}
 import com.typesafe.config.Config
 import com.webtrends.harness.component.zookeeper.config.ZookeeperSettings
 
@@ -48,23 +48,15 @@ object NodeRegistration {
 
   /**
     * Return the address name this node will carry
-    * @return
     */
   def getAddress(implicit system: ActorSystem): String = {
-    val address = SystemExtension(system).address
-    val port = if (address.port.isDefined) address.port.get
-      else system.settings.config.getInt("akka.remote.netty.tcp.port")
-    val addrHost = address.host
+    val addrHost = SystemExtension.getAddress(system)
 
-    val host = if (addrHost.isEmpty) {
-      InetAddress.getLocalHost.getCanonicalHostName
-    } else if (!Zookeeper.isMock(system.settings.config) &&
-      (addrHost.get.equalsIgnoreCase("localhost") || addrHost.get.equals("127.0.0.1"))) {
+    if (!Zookeeper.isMock(system.settings.config) &&
+      (addrHost.equalsIgnoreCase("localhost") || addrHost.equals("127.0.0.1"))) {
       InetAddress.getLocalHost.getCanonicalHostName
     } else {
-      addrHost.get
+      addrHost
     }
-
-    s"$host:$port"
   }
 }

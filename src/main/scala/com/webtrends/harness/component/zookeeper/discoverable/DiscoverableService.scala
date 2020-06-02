@@ -42,9 +42,9 @@ private[harness] class DiscoverableService()(implicit system: ActorSystem) {
                        (implicit timeout:Timeout = defaultTimeout): Future[List[ServiceInstance[WookieeServiceDetails]]] =
     (getMediator(system) ? QueryForInstances(basePath, id)).mapTo[List[ServiceInstance[WookieeServiceDetails]]]
 
-  def makeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec)
+  def makeDiscoverable(basePath: String, id: String, uriSpec: UriSpec)
                       (implicit timeout:Timeout = defaultTimeout): Future[Boolean] =
-    (getMediator(system) ? MakeDiscoverable(basePath, id, address, port, uriSpec)).mapTo[Boolean]
+    (getMediator(system) ? MakeDiscoverable(basePath, id, uriSpec)).mapTo[Boolean]
 
   def getInstance(basePath: String, id: String)(implicit timeout:Timeout) : Future[ServiceInstance[WookieeServiceDetails]] = {
     (getMediator(system) ? GetInstance(basePath, id)).mapTo[ServiceInstance[WookieeServiceDetails]]
@@ -68,7 +68,7 @@ object DiscoverableService {
 
   @SerialVersionUID(2L) private[harness] case class QueryForInstances(basePath: String, id: String)
 
-  @SerialVersionUID(2L) private[harness] case class MakeDiscoverable(basePath: String, id: String, address: Option[String], port: Int, uriSpec: UriSpec)
+  @SerialVersionUID(2L) private[harness] case class MakeDiscoverable(basePath: String, id: String, uriSpec: UriSpec)
 
   @SerialVersionUID(2L) private[harness] case class GetInstance(basePath: String, id: String)
 
