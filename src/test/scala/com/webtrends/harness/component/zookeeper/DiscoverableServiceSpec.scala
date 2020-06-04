@@ -32,8 +32,8 @@ class DiscoverableServiceSpec
     Thread.sleep(5000)
 
     " make a service discoverable " in {
-      val res = Await.result(service.makeDiscoverable(path, testServiceName, None, 2552,
-        new UriSpec(s"akka.tcp://server@[Server]:2552/$testServiceName")), 2000.milliseconds)
+      val res = Await.result(service.makeDiscoverable(path, testServiceName,
+        new UriSpec(s"127.0.0.1/$testServiceName")), 4000.milliseconds)
       res shouldBe true
     }
 

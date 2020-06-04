@@ -18,7 +18,7 @@ package com.webtrends.harness.component.zookeeper.discoverable
 
 import akka.actor.Actor
 import akka.util.Timeout
-import com.webtrends.harness.component.zookeeper.WookieeServiceDetails
+import com.webtrends.harness.component.zookeeper.{SystemExtension, WookieeServiceDetails}
 import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 
 import scala.concurrent.Future
@@ -31,8 +31,6 @@ trait Discoverable {
 
   import context.system
   private lazy val service = DiscoverableService()
-  val port: Int = context.system.settings.config.getInt("akka.remote.netty.tcp.port")
-  val address: String = context.system.settings.config.getString("akka.remote.netty.tcp.hostname")
 
   def queryForNames(basePath:String)(implicit timeout:Timeout): Future[List[String]] =
     service.queryForNames(basePath)
@@ -42,16 +40,13 @@ trait Discoverable {
     service.queryForInstances(basePath, id)
 
   def makeDiscoverable(basePath: String, id: String)(implicit timeout:Timeout): Future[Boolean] =
-    makeDiscoverable(basePath, id, Some(address), port,
-      new UriSpec(s"akka.tcp://server@$address:$port/${context.system.name}"))
+    makeDiscoverable(basePath, id, new UriSpec(SystemExtension.getAddress(context.system)))
 
   def makeDiscoverable(
                         basePath: String,
                         id: String,
-                        address: Option[String],
-                        port: Int,
                         uriSpec: UriSpec)(implicit timeout:Timeout): Future[Boolean] =
-    service.makeDiscoverable(basePath, id, address, port, uriSpec)
+    service.makeDiscoverable(basePath, id, uriSpec)
 
   def getInstances(basePath:String, id:String)
                   (implicit timeout:Timeout): Future[List[ServiceInstance[WookieeServiceDetails]]] =

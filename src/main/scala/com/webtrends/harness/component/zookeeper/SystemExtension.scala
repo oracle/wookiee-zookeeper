@@ -15,11 +15,17 @@
  */
 package com.webtrends.harness.component.zookeeper
 
-import akka.actor.{ExtendedActorSystem, Extension, ExtensionKey}
+import java.net.InetAddress
+
+import akka.actor.{ActorSystem, Address, ExtendedActorSystem, Extension}
 
 class SystemExtension(system: ExtendedActorSystem) extends Extension {
-  def address = system.provider.getDefaultAddress
+  def address: Address = system.provider.getDefaultAddress
 }
 
-object SystemExtension extends ExtensionKey[SystemExtension]
-
+object SystemExtension {
+  def getAddress(system: ActorSystem): String = {
+    val ext = new SystemExtension(system.asInstanceOf[ExtendedActorSystem])
+    ext.address.host.getOrElse(InetAddress.getLocalHost.getCanonicalHostName)
+  }
+}

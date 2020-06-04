@@ -94,7 +94,7 @@ class ZookeeperServiceSpec
 
     "allow callers to discover commands " in {
       val res = Await.result(zkActor ? MakeDiscoverable(
-        "base/path", "testname", None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+        "base/path", "testname", new UriSpec("file://foo")), awaitResultTimeout)
       res.asInstanceOf[Boolean] shouldBe true
     }
 
@@ -102,7 +102,7 @@ class ZookeeperServiceSpec
       val basePath = "base/path"
       val name = UUID.randomUUID().toString
 
-      Await.result(zkActor ? MakeDiscoverable(basePath, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+      Await.result(zkActor ? MakeDiscoverable(basePath, name, new UriSpec("file://foo")), awaitResultTimeout)
 
       val res2 = Await.result(zkActor ? QueryForInstances(basePath, name), awaitResultTimeout)
       res2.asInstanceOf[List[ServiceInstance[WookieeServiceDetails]]].head.getPayload.getWeight shouldBe 0
@@ -112,7 +112,7 @@ class ZookeeperServiceSpec
       val basePath = "base/path"
       val name = UUID.randomUUID().toString
 
-      Await.result(zkActor ? MakeDiscoverable(basePath, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+      Await.result(zkActor ? MakeDiscoverable(basePath, name, new UriSpec("file://foo")), awaitResultTimeout)
       Await.result(zkActor ? UpdateWeight(100, basePath, name, forceSet = false), awaitResultTimeout)
 
       def result: List[ServiceInstance[WookieeServiceDetails]] = {
@@ -127,7 +127,7 @@ class ZookeeperServiceSpec
       val basePath = "base/path"
       val name = UUID.randomUUID().toString
 
-      Await.result(zkActor ? MakeDiscoverable(basePath, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+      Await.result(zkActor ? MakeDiscoverable(basePath, name, new UriSpec("file://foo")), awaitResultTimeout)
       Await.result(zkActor ? UpdateWeight(100, basePath, name, forceSet = true), awaitResultTimeout)
 
       val res = Await.result(zkActor ? QueryForInstances(basePath, name), awaitResultTimeout)
@@ -140,7 +140,7 @@ class ZookeeperServiceSpec
       val basePath = "base/path"
       val name = UUID.randomUUID().toString
 
-      Await.result(zkActor ? MakeDiscoverable(basePath, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+      Await.result(zkActor ? MakeDiscoverable(basePath, name, new UriSpec("file://foo")), awaitResultTimeout)
       Await.result(zkActor ? UpdateWeight(100, basePath, name, forceSet = false), awaitResultTimeout)
 
       val res = Await.result(zkActor ? QueryForInstances(basePath, name), awaitResultTimeout)
@@ -153,7 +153,7 @@ class ZookeeperServiceSpec
       val basePath = "base/path"
       val name = UUID.randomUUID().toString
 
-      Await.result(zkActor ? MakeDiscoverable(basePath, name, None, 8080, new UriSpec("file://foo")), awaitResultTimeout)
+      Await.result(zkActor ? MakeDiscoverable(basePath, name, new UriSpec("file://foo")), awaitResultTimeout)
       Await.result(zkActor ? UpdateWeight(100, basePath, name, forceSet = false), awaitResultTimeout)
 
       Thread.sleep(3000)

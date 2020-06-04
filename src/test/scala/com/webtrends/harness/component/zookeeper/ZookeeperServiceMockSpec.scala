@@ -25,8 +25,8 @@ class ZookeeperServiceMockSpec
       |  base-path = "/test_path"
       |  register-self = false
       |}
-    """.stripMargin), port = 2121)
-  override implicit val zkActorSystem: ActorSystem = TestHarness.system(2121).get
+    """.stripMargin))
+  override implicit val zkActorSystem: ActorSystem = testHarness.system
 
   implicit val to: Timeout = Timeout(5.seconds)
   val awaitResultTimeout: FiniteDuration = 5000.milliseconds
