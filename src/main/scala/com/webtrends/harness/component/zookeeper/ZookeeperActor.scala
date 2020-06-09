@@ -214,7 +214,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         child <- getClientContext(namespace).getChildren.forPath(path).asScala
         data = if (includeData) Some(getClientContext(namespace).getData.forPath(s"$path/$child")) else None
       } yield (child, data)
-      sender() ! nodes
+      sender() ! nodes.toSeq
     } catch {
       case e: Exception =>
         log.error(e, "An error occurred trying to fetch children from the path {}", path)

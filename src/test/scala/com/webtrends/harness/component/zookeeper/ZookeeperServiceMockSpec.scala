@@ -31,7 +31,7 @@ class ZookeeperServiceMockSpec
   implicit val to: Timeout = Timeout(5.seconds)
   val awaitResultTimeout: FiniteDuration = 5000.milliseconds
 
-  "The zookeeper service" should {
+  "The zookeeper mock service" should {
     "don't register self when not set to" in {
       val startPath = Await.result((getMediator(zkActorSystem) ? GetRegistrationPath()).mapTo[String], awaitResultTimeout)
       try {
