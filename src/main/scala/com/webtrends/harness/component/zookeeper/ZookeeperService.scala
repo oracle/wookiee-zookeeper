@@ -19,6 +19,7 @@
 package com.webtrends.harness.component.zookeeper
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
+import com.webtrends.harness.component.zookeeper.ZookeeperService.mediatorMap
 import com.webtrends.harness.logging.LoggingAdapter
 import org.apache.zookeeper.CreateMode
 
@@ -26,11 +27,12 @@ import scala.collection.concurrent.TrieMap
 
 object ZookeeperService extends LoggingAdapter {
   // Actor of type ZookeeperActor
-  def getZkActor(implicit system: ActorSystem): Option[ActorRef] = mediatorMap.get(system)
-
   private val mediatorMap = TrieMap[ActorSystem, ActorRef]()
+  def getZkActor(implicit system: ActorSystem): Option[ActorRef] = mediatorMap.synchronized {
+    mediatorMap.get(system)
+  }
 
-  private[harness] def getMediator(system: ActorSystem): ActorRef = {
+  private[harness] def getMediator(system: ActorSystem): ActorRef = mediatorMap.synchronized {
     mediatorMap.get(system) match {
       case Some(zkActor) => zkActor
       case None => throw new IllegalStateException(s"No ZK Actor Registered for System: [$system]")
@@ -39,13 +41,17 @@ object ZookeeperService extends LoggingAdapter {
 
   private[harness] def registerMediator(actor: ActorRef)(implicit system: ActorSystem) = {
     log.info(s"Registering mediator: [${actor.path}], for actor system: [$system]")
-    mediatorMap.put(system, actor)
+    mediatorMap.synchronized {
+      mediatorMap.put(system, actor)
+    }
   }
 
   private[harness] def unregisterMediator(system: ActorSystem) = {
-    if (mediatorMap.contains(system)) {
-      log.info(s"Unregistering mediator for actor system: [$system]")
-      mediatorMap.remove(system) foreach(_ ! PoisonPill)
+    mediatorMap.synchronized {
+      if (mediatorMap.contains(system)) {
+        log.info(s"Unregistering mediator for actor system: [$system]")
+        mediatorMap.remove(system) foreach (_ ! PoisonPill)
+      }
     }
   }
 
