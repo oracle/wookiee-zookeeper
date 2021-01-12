@@ -46,7 +46,6 @@ import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
 
 import java.nio.charset.Charset
-import java.util.concurrent.TimeUnit
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -107,8 +106,8 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
       startCurator
 
       context.system.scheduler.schedule(
-        setWeightInterval seconds,
-        setWeightInterval seconds,
+        FiniteDuration(setWeightInterval,  scala.concurrent.duration.SECONDS),
+        FiniteDuration(setWeightInterval,  scala.concurrent.duration.SECONDS),
         self,
         SetWeight)
 
@@ -488,9 +487,11 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         }.getOrElse {
           Try({
             // Adding a new cache
-            curatorCache = Some(CuratorCache.build(getClientContext(optNamespace), path))
-
-            listener = Some(CuratorCacheListener.builder().forPathChildrenCache(path, getClientContext(optNamespace), new PathChildrenCacheListener {
+            val framework = getClientContext(optNamespace)
+            val c = CuratorCache.build(framework, path)
+            curatorCache = Some(c)
+            val builder = CuratorCacheListener.builder()
+            listener = Some(builder.forPathChildrenCache(path, framework, new PathChildrenCacheListener {
               override def childEvent(
                                        curatorFramework: CuratorFramework,
                                        event: PathChildrenCacheEvent
@@ -687,7 +688,7 @@ private class LeaderListener(path: String, ref: ActorRef, namespace: Option[Stri
 
   def publishEvent(leader: Boolean) = {
     // Notify the registered listeners
-    implicit val timeout = Timeout(2000, TimeUnit.MILLISECONDS)
+    implicit val timeout = Timeout(2000, scala.concurrent.duration.SECONDS)
     (ref ? GetLeaderRegistrars(path, namespace)).mapTo[Set[ActorRef]].onSuccess {
       case set => set foreach {
         _ ! ZookeeperLeadershipEvent(leader)

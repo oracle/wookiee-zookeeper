@@ -207,6 +207,26 @@
         <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
         <plugins>
             <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                    <args>
+                        <arg>-target:jvm-1.8</arg>
+                    </args>
+                    <addScalacArgs>-target:jvm-1.8</addScalacArgs>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
                 <version>2.5.2</version>
@@ -231,20 +251,6 @@
                     <skip>true</skip>
                     <!-- skip testCompile -->
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>com.google.code.sbt-compiler-maven-plugin</groupId>
-                <artifactId>sbt-compiler-maven-plugin</artifactId>
-                <version>1.0.0</version>
-                <executions>
-                    <execution>
-                        <id>default-sbt-compile</id>
-                        <goals>
-                            <goal>compile</goal>
-                            <goal>testCompile</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>net.java.maven-incremental-build</groupId>
