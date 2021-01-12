@@ -19,9 +19,6 @@
 
 package com.webtrends.harness.component.zookeeper
 
-import java.nio.charset.Charset
-import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
@@ -40,8 +37,7 @@ import net.liftweb.json.compactRender
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent}
 import org.apache.curator.framework.recipes.atomic.DistributedAtomicLong
-import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
-import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.cache.{CuratorCache, CuratorCacheListener, PathChildrenCacheEvent, PathChildrenCacheListener}
 import org.apache.curator.framework.recipes.leader.{LeaderLatch, LeaderLatchListener}
 import org.apache.curator.framework.state.{ConnectionState, ConnectionStateListener}
 import org.apache.curator.retry.ExponentialBackoffRetry
@@ -49,6 +45,8 @@ import org.apache.curator.x.discovery.{ServiceInstance, UriSpec}
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.{NoNodeException, NodeExistsException}
 
+import java.nio.charset.Charset
+import java.util.concurrent.TimeUnit
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,7 +65,6 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     with ActorLoggingAdapter
     with ActorHealth
     with ConnectionStateListener
-    with PathChildrenCacheListener
     with Stash {
 
   implicit val actorSystem = context.system
@@ -88,12 +85,13 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
   private var childRegistrars: Map[(String, Option[String]), CacheEntry] = Map.empty
   private var leadershipRegistrars: Map[(String, Option[String]), LeaderEntry] = Map.empty
   private var weightRegistrars: Map[WeightKey, WeightState] = Map.empty
+  protected var curatorCache: Option[CuratorCache] = None
+  protected var listener: Option[CuratorCacheListener] = None
 
   protected val curator = Curator(settings)
   protected val callback = new DefaultCallback
 
-
-  @SerialVersionUID(1L) private case class CacheEntry(cache: PathChildrenCache, registrars: Set[ActorRef])
+  @SerialVersionUID(1L) private case class CacheEntry(cache: CuratorCache, registrars: Set[ActorRef])
 
   @SerialVersionUID(1L) private case class LeaderEntry(leader: LeaderLatch, registrars: Set[ActorRef])
 
@@ -490,10 +488,20 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
         }.getOrElse {
           Try({
             // Adding a new cache
-            val cache = new PathChildrenCache(getClientContext(optNamespace), path, true)
-            cache.getListenable.addListener(this)
-            cache.start(StartMode.POST_INITIALIZED_EVENT)
-            childRegistrars += ((path, optNamespace) -> CacheEntry(cache, Set(registrar)))
+            curatorCache = Some(CuratorCache.build(getClientContext(optNamespace), path))
+
+            listener = Some(CuratorCacheListener.builder().forPathChildrenCache(path, getClientContext(optNamespace), new PathChildrenCacheListener {
+              override def childEvent(
+                                       curatorFramework: CuratorFramework,
+                                       event: PathChildrenCacheEvent
+                                     ): Unit = this.childEvent(curatorFramework, event)
+            }).build())
+
+            listener.foreach(l => curatorCache.foreach(_.listenable().addListener(l)))
+            curatorCache.foreach { cache =>
+              cache.start()
+              childRegistrars += ((path, optNamespace) -> CacheEntry(cache, Set(registrar)))
+            }
           }).recover({
             case e: Exception => log.error(s"An error occurred trying to create a path listener for the path $path", e)
           })
@@ -531,7 +539,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
               val newEntry = (path, optNamespace) -> entry.copy(registrars = entry.registrars.filterNot(_ == registrar))
               if (newEntry._2.registrars.isEmpty) {
                 // No more registrars so we can shutdown the cache
-                entry.cache.getListenable.removeListener(this)
+                listener.foreach(l => entry.cache.listenable.removeListener(l))
                 entry.cache.close
                 val key = (path, optNamespace)
                 childRegistrars -= key
@@ -610,7 +618,7 @@ class ZookeeperActor(settings:ZookeeperSettings, clusterEnabled:Boolean=false) e
     // Close all
     childRegistrars.values foreach {
       entry =>
-        entry.cache.getListenable.removeListener(this)
+        listener.foreach(l => entry.cache.listenable.removeListener(l))
         entry.cache.close
     }
     childRegistrars = Map.empty
