@@ -418,6 +418,12 @@
                         </goals>
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.curator</pattern>
+                                    <shadedPattern>shaded.o.a.c</shadedPattern>
+                                </relocation>
+                            </relocations>
                             <artifactSet>
                                 <excludes>
                                     <!-- These are all libraries that are already loaded as part of the harness
