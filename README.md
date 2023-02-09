@@ -27,6 +27,9 @@ Add [latest version](https://github.com/oracle/wookiee-zookeeper/releases/latest
 </dependency>
 ~~~~
 
+## Contributing
+This project is not accepting external contributions at this time. For bugs or enhancement requests, please file a GitHub issue unless it’s security related. When filing a bug remember that the better written the bug is, the more likely it is to be fixed. If you think you’ve found a security vulnerability, do not raise a GitHub issue and follow the instructions in our [security policy](./SECURITY.md).
+
 ## Overview
 
 Each instance of Wookiee can automatically manages itself with ZooKeeper so that others nodes can make use
@@ -142,3 +145,11 @@ wookiee-zookeeper {
   mock-enabled = true
 }
 ```
+
+## License
+
+Copyright (c) 2004 Oracle and/or its affiliates.
+
+*Replace this statement if your project is not licensed under the UPL*
+
+Released under the Apache License Version 2.0
