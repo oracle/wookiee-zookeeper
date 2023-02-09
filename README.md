@@ -142,3 +142,11 @@ wookiee-zookeeper {
   mock-enabled = true
 }
 ```
+
+## License
+
+Copyright (c) 2004 Oracle and/or its affiliates.
+
+*Replace this statement if your project is not licensed under the UPL*
+
+Released under the Apache License Version 2.0
